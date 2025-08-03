@@ -156,7 +156,7 @@ jobs:
         run: |
             (cd ${{ env.armbian_init_path }} && find . | cpio -H newc -o | gzip -9 > ../initrd-${{ env.kernel_main_version }}.img)
             
-            mv initrd-${{ env.kernel_main_version }}.img  ${{ env.armbian_path }}
+            mv initrd-${{ env.kernel_main_version }}.img  ${{ env.armbian_path }}/
             
       - name: Generate uInitrd
         run: |
