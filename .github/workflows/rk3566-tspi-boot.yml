@@ -166,7 +166,7 @@ jobs:
         run: |
           cd  ${{ env.armbian_path }}
           cp -a ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb   .
-          dtc -I dtb -O dts rockchip/rk3566-lckfb-tspi.dtb  -o file.dts
+          dtc -I dtb -O dts rk3566-lckfb-tspi.dtb  -o file.dts
           sed -i '/mmcblk0p3/d'  file.dts
           dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi-${{ env.kernel_main_version }}.dtb
           rm -rf rk3566-lckfb-tspi.dtb
