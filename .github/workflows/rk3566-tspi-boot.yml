@@ -1,4 +1,4 @@
-name: Build rk3566-tspi.img
+name: Build master-rk3566-tspi.img
 
 on:
   push:
