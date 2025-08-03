@@ -15,13 +15,16 @@
 	compatible = "lckfb,tspi-rk3566", "rockchip,rk3566";
 
 	aliases {
-		mmc0 = &sdmmc0;
-		mmc1 = &sdhci;
+		mmc0 = &sdhci;
+		mmc1 = &sdmmc0;
+//		mmc0 = &sdmmc0;
+//		mmc1 = &sdhci;
 		mmc2 = &sdmmc1;
 	};
 
 	chosen: chosen {
-		stdout-path = "serial2:1500000n8";
+		bootargs = "root=/dev/mmcblk0p3 rootfstype=ext4 rw rootwait console=ttyS2,115200";
+		stdout-path = "serial2:115200n8";
 	};
 
 	reserved-memory {
@@ -612,7 +615,8 @@
 	status = "okay";
 
 	brcmf: wifi@1 {
-		compatible = "brcm,bcm4329-fmac";
+		compatible = "brcm,bcm43455-fmac";
+//		compatible = "brcm,bcm4329-fmac";
 		reg = <1>;
 		interrupt-parent = <&gpio2>;
 		interrupts = <RK_PB2 IRQ_TYPE_LEVEL_HIGH>;
@@ -628,6 +632,9 @@
 	status = "okay";
 };
 
+&leds: {
+	status = "okay";
+};
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1m0_xfer &uart1m0_ctsn &uart1m0_rtsn>;
@@ -635,7 +642,8 @@
 	status = "okay";
 
 	bluetooth: bluetooth {
-		compatible = "brcm,bcm43438-bt";
+		compatible = "brcm,bcm4345c5";
+//		compatible = "brcm,bcm43438-bt";
 		clocks = <&rk809 1>;
 		clock-names = "lpo";
 		max-speed = <3000000>;
