@@ -7,8 +7,9 @@ on:
 
 env:
   ARCH: arm64
-  src_path: /home/runner/work/linux/linux
-  modules_path: /home/runner/work/linux/linux/modules/lib/modules
+  #linux-main替换自己的仓库名称
+  src_path: /home/runner/work/linux-main/linux-main
+  modules_path: /home/runner/work/linux-main/linux-main/modules/lib/modules
   
 
   
