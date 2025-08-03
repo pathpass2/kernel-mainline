@@ -165,11 +165,19 @@ jobs:
 
       - name: edit dtb
         run: |
+          echo "查看未修改前的dtb"
+          ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
+          echo "复制dtb到armbian_boot路径"
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb   ${{ env.armbian_path }}/rk3566-lckfb-tspi.dtb
           cd  ${{ env.armbian_path }}
-          cp -a ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb   .
+          echo "查看${{ env.armbian_path }}下未修改前的dtb $(ls -lh)"
+          echo  "反编译"
           dtc -I dtb -O dts rockchip/rk3566-lckfb-tspi.dtb  -o file.dts
+          echo "修改dts"
           sed -i '/mmcblk0p3/d'  file.dts
+          echo "重新编译dtb"
           dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi-${{ env.kernel_main_version }}.dtb
+          echo "删除未修改的dtb、dts"
           rm -rf rk3566-lckfb-tspi.dtb
           rm -rf file.dts
           
