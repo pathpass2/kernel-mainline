@@ -131,34 +131,12 @@ jobs:
           echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
           ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
           
-      - name:   armbian_boot_initrd.img
-        run: |
-          mkdir -p ${{ env.armbian_path }}
-          mkdir -p ${{ env.armbian_init_path }}/{bin,dev,etc,lib,lib64,mnt/root,proc,root,sbin,sys}
-          mkdir -p ${{ env.armbian_init_path }}/lib/modules
-          cp -r modules/lib/modules/${{ env.kernel_main_version }} ${{ env.armbian_init_path }}/lib/modules/
-          cp /bin/busybox  ${{ env.armbian_init_path }}/bin/
-          cd ${{ env.armbian_init_path }}/bin/
-          ./busybox --install -s
-          # 创建基本的init脚本
-          cat > ${{ env.armbian_init_path }}/init << 'EOF'
-          #!/bin/sh
-          echo "Loading ARM64 Armbian initrd"
-          mount -t proc proc /proc
-          mount -t sysfs sysfs /sys
-          mount -t devtmpfs udev /dev
-          echo "Initrd loaded successfully"
-          exec /bin/sh
-          EOF
-          chmod +x ${{ env.armbian_init_path }}/init            
-
-
-
+     
 
       - name: edit dtb
         run: |
           cd  ${{ env.armbian_path }}
-          mkdir dtb
+          mkdir -p ${{ env.armbian_path }}/dtb
           echo "查看未修改前的dtb"
           ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
           echo "复制dtb到armbian_boot路径"
