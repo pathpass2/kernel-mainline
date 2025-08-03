@@ -154,14 +154,14 @@ jobs:
 
       - name: Generate initrd.img 
         run: |
-            (cd ${{ env.armbian_init_path }} && find . | cpio -H newc -o | gzip -9 > ../initrd.img-${{ env.kernel_main_version }})
+            (cd ${{ env.armbian_init_path }} && find . | cpio -H newc -o | gzip -9 > ../initrd-${{ env.kernel_main_version }}.img)
             
-            mv initrd.img  ${{ env.armbian_path }}
+            mv initrd-${{ env.kernel_main_version }}.img  ${{ env.armbian_path }}
             
       - name: Generate uInitrd
         run: |
           cd ${{ env.armbian_path }}
-          mkimage -A arm64 -O linux -T ramdisk -C gzip -d ${{ env.armbian_path }}/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_path }}/uInitrd-${{ env.kernel_main_version }}
+          mkimage -A arm64 -O linux -T ramdisk -C gzip -d ${{ env.armbian_path }}/initrd-${{ env.kernel_main_version }}.img   ${{ env.armbian_path }}/uInitrd-${{ env.kernel_main_version }}
 
       - name: edit dtb
         run: |
