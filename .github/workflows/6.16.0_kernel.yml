@@ -79,6 +79,7 @@ jobs:
           # 获取内核版本号
           echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
 
+
       - name: Set armbian_path
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
@@ -152,24 +153,17 @@ jobs:
           chmod +x ${{ env.armbian_init_path }}/init            
 
 
-      - name: Generate initrd.img 
-        run: |
-            (cd ${{ env.armbian_init_path }} && find . | cpio -H newc -o | gzip -9 > ../initrd-${{ env.kernel_main_version }}.img)
-            
-            mv initrd-${{ env.kernel_main_version }}.img  ${{ env.armbian_path }}/
-            
-      - name: Generate uInitrd
-        run: |
-          cd ${{ env.armbian_path }}
-          mkimage -A arm64 -O linux -T ramdisk -C gzip -d ${{ env.armbian_path }}/initrd-${{ env.kernel_main_version }}.img   ${{ env.armbian_path }}/uInitrd-${{ env.kernel_main_version }}
+
 
       - name: edit dtb
         run: |
+          cd  ${{ env.armbian_path }}
+          mkdir dtb
           echo "查看未修改前的dtb"
           ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
           echo "复制dtb到armbian_boot路径"
-          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb   ${{ env.armbian_path }}/rk3566-lckfb-tspi.dtb
-          cd  ${{ env.armbian_path }}
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/*.dtb   ${{ env.armbian_path }}/dtb/rk3566-lckfb-tspi.dtb
+          cd ${{ env.armbian_path }}/dtb
           echo "查看${{ env.armbian_path }}下未修改前的dtb $(ls -lh)"
           echo  "反编译"
           dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
@@ -187,6 +181,9 @@ jobs:
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config      ${{ env.armbian_path }}/config-${{ env.kernel_main_version }}           
           cd   ${{ env.armbian_path }}
+          cat > readme.txt << EOF
+          initrd.img、uImage需要自己用armbian的机器重新生成，我不会在actions上生成initrd.img和uImage
+          EOF
           tar  -zcvf armbian-boot-${{ env.kernel_main_version }}.tar.gz   *   
           
       - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
