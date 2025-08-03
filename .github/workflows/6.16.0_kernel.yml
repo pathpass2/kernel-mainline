@@ -172,7 +172,7 @@ jobs:
           cd  ${{ env.armbian_path }}
           echo "查看${{ env.armbian_path }}下未修改前的dtb $(ls -lh)"
           echo  "反编译"
-          dtc -I dtb -O dts rockchip/rk3566-lckfb-tspi.dtb  -o file.dts
+          dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
           echo "修改dts"
           sed -i '/mmcblk0p3/d'  file.dts
           echo "重新编译dtb"
