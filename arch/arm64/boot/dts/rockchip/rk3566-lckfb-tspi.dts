@@ -632,7 +632,7 @@
 	status = "okay";
 };
 
-&leds: {
+&leds {
 	status = "okay";
 };
 &uart1 {
