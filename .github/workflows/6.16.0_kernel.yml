@@ -90,10 +90,10 @@ jobs:
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
           echo  "查看编译好的boot.img"
-          ls -l boot.img
+          ls -lh boot.img
           echo "重命名boot.img为rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img"
           mv boot.img  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
-          ls  -l ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img          
+          ls  -lh      rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img          
           echo "当前所在编译路径：$(pwd)"
           # 打包模块
           cd  ${{ env.modules_path }}
@@ -103,11 +103,11 @@ jobs:
           ls
           echo "${{ env.kernel_main_version }}"
           echo "查看模块详情"
-          ls -l ${{ env.kernel_main_version }}
+          ls -lh ${{ env.kernel_main_version }}
           echo "打包modules"
           tar -zcvf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
           echo "查看打包的modules.tar.gz"
-          ls  -l
+          ls  -lh
      
       
       - name: Build Kernel-headers
@@ -127,7 +127,7 @@ jobs:
           tar -zcvf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
           echo "当前所在路径：$(pwd)"
           echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
-          ls  -l ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
+          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
             
 
       - name: Build  armbian_boot
