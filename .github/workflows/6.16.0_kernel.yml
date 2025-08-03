@@ -136,7 +136,8 @@ jobs:
           mkdir -p ${{ env.armbian_init_path }}/lib/modules
           cp -r modules/lib/modules/${{ env.kernel_main_version }} ${{ env.armbian_init_path }}/lib/modules/
           cp /bin/busybox  ${{ env.armbian_init_path }}/bin/
-          proot -r ${{ env.armbian_init_path }} /bin/busybox --install -s
+          cd ${{ env.armbian_init_path }}/bin/
+          ./busybox --install -s
           # 创建基本的init脚本
           cat > ${{ env.armbian_init_path }}/init << 'EOF'
           #!/bin/sh
