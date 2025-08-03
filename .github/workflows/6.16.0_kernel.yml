@@ -11,8 +11,8 @@ on:
 
 env:
   ARCH: arm64
-  src_path: /home/runner/work/linux/linux
-  modules_path: /home/runner/work/linux/linux/modules/lib/modules
+  src_path: /home/runner/work/linux-main/linux-main
+  modules_path: /home/runner/work/linux-main/linux-main/modules/lib/modules
   
 
   
@@ -82,6 +82,7 @@ jobs:
       - name: Set armbian_path
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
+          echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
           
       - name: Build Kernel
         run: |             
@@ -128,22 +129,63 @@ jobs:
           echo "当前所在路径：$(pwd)"
           echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
           ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
-            
-
-      - name: Build  armbian_boot
+          
+      - name:   armbian_boot_initrd.img
         run: |
           mkdir -p ${{ env.armbian_path }}
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_path }}/vmlinuz-${{ env.kernel_main_version }}
-          cp -a ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb   ${{ env.armbian_path }}/
-          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_path }}/System.map-${{ env.kernel_main_version }}
-          cp -a ${{ env.src_path }}/.config      ${{ env.armbian_path }}/config-${{ env.kernel_main_version }}
-          
-          echo  "查看打包的armbian_boot压缩文件$(ls)"
-          cat > ${{ env.armbian_path }}/readme.txt  << EOF
-          dtb需要反编译，去除里面的bootargs启动参数，才能给armbian使用
-          initrd.img和uInitrd需要自己到要刷入的armbian机器里面通过modules制作，我不会在Github-Actions上面编译initrd.img
+          mkdir -p ${{ env.armbian_init_path }}/{bin,dev,etc,lib,lib64,mnt/root,proc,root,sbin,sys}
+          mkdir -p ${{ env.armbian_init_path }}/lib/modules
+          cp -r modules/lib/modules/${{ env.kernel_main_version }} ${{ env.armbian_init_path }}/lib/modules/
+          cp /bin/busybox  ${{ env.armbian_init_path }}/bin/
+          cd ${{ env.armbian_init_path }}/bin/
+          ./busybox --install -s
+          # 创建基本的init脚本
+          cat > ${{ env.armbian_init_path }}/init << 'EOF'
+          #!/bin/sh
+          echo "Loading ARM64 Armbian initrd"
+          mount -t proc proc /proc
+          mount -t sysfs sysfs /sys
+          mount -t devtmpfs udev /dev
+          echo "Initrd loaded successfully"
+          exec /bin/sh
           EOF
+          chmod +x ${{ env.armbian_init_path }}/init            
+
+
+      - name: Generate initrd.img 
+        run: |
+            (cd ${{ env.armbian_init_path }} && find . | cpio -H newc -o | gzip -9 > ../initrd-${{ env.kernel_main_version }}.img)
+            
+            mv initrd-${{ env.kernel_main_version }}.img  ${{ env.armbian_path }}/
+            
+      - name: Generate uInitrd
+        run: |
+          cd ${{ env.armbian_path }}
+          mkimage -A arm64 -O linux -T ramdisk -C gzip -d ${{ env.armbian_path }}/initrd-${{ env.kernel_main_version }}.img   ${{ env.armbian_path }}/uInitrd-${{ env.kernel_main_version }}
+
+      - name: edit dtb
+        run: |
+          echo "查看未修改前的dtb"
+          ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
+          echo "复制dtb到armbian_boot路径"
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb   ${{ env.armbian_path }}/rk3566-lckfb-tspi.dtb
+          cd  ${{ env.armbian_path }}
+          echo "查看${{ env.armbian_path }}下未修改前的dtb $(ls -lh)"
+          echo  "反编译"
+          dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
+          echo "修改dts"
+          sed -i '/mmcblk0p3/d'  file.dts
+          echo "重新编译dtb"
+          dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi-${{ env.kernel_main_version }}.dtb
+          echo "删除未修改的dtb、dts"
+          rm -rf rk3566-lckfb-tspi.dtb
+          rm -rf file.dts
           
+      - name: Build  armbian_boot
+        run: |
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_path }}/System.map-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/.config      ${{ env.armbian_path }}/config-${{ env.kernel_main_version }}           
           cd   ${{ env.armbian_path }}
           tar  -zcvf armbian-boot-${{ env.kernel_main_version }}.tar.gz   *   
           
