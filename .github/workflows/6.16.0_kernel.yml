@@ -86,7 +86,8 @@ jobs:
           echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
           
       - name: Build Kernel
-        run: |             
+        run: |
+          cat config-6.1.115 > .config || cat .config.old > .config
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  olddefconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
