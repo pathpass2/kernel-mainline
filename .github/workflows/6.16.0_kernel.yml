@@ -87,8 +87,6 @@ jobs:
           
       - name: Build Kernel
         run: |
-          cat config-6.1.115 > arch/arm64/configs/tspi_defconfig
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
           #make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  olddefconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
