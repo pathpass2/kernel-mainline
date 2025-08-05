@@ -175,7 +175,9 @@ jobs:
             ${{ env.armbian_path }}/armbian-boot-${{ env.kernel_main_version }}.tar.gz
             ${{ env.dtb_path }}/dtb-${{ env.kernel_main_version }}.tag.gz
             
-          body: "Auto-built  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}"
+          body: |
+            master-latest 
+            ap6255  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}
           draft: false
           prerelease: false
           allowUpdates: true
