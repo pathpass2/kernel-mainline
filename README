@@ -22,4 +22,4 @@ actions编译：
 如果是原装的ap6212-WiFi模块，选择ap6212-6.16.1_kernel.yml  
 ps：手里没有ap6212，买来就换了ap6255，所以没办法测试ap6212的蓝牙、WiFi
 
-
+Release里的armbian_boot.tar.gz。里面缺少initrd.img、uInitrd。需要自己到armbian机器上制作，我不会在actions上制作这个
