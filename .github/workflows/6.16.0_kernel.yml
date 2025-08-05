@@ -84,7 +84,7 @@ jobs:
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
           echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
-          echo "dtb_path=${{ env.src_path }}/dtb-${{ env.kernel_main_version }}" >> $GITHUB_ENV
+          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
           
       - name: Build Kernel
         run: |
@@ -155,7 +155,7 @@ jobs:
           echo "删除未修改的dts"
           rm -rf file.dts
           cd ${{ env.dtb_path }}/
-          tar -zcvf ./dtb-${{ env.kernel_main_version }}.tag.gz  ./dtb
+          tar -zcvf dtb-${{ env.kernel_main_version }}.tag.gz  dtb
           
       - name: Build  armbian_boot
         run: |
