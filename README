@@ -9,7 +9,7 @@ config是从armbian获取的，在armbian-config的基础上开启了zram，方�
 可fork后在action直接编译，也可拉取到本地编译
 
 dts改动：
-更改mmc0(sd卡)的参数，可以从sd卡启动armbian-6.16.0
+更改mmc0(sd卡)的参数，在emmc上有系统的情况下(比如emmc里装了安卓或者fedora)：可以从sd卡启动armbian-6.16.0，拔掉sd卡则从emmc启动系统
 wifi和蓝牙改了ap6255，如果是原装6212可把6255的改动删除，把注释的6212恢复。将sdhci(emmc)设为了mmcblk0，  rootfs引导设置为了mmcblk0p3，需要修改的话自行修改。波特率修改为了115200
 
 只测试了6.16、v6.16-rc7。在v6.16的基础上加的tspi文件，重新保存为v6.16.0
