@@ -1,18 +1,18 @@
-Linux kernel
-============
+从主线fork
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+添加了立创泰山派的编译所需文件
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+驱动所需的firmware需要从armbian提取
 
-    https://www.kernel.org/doc/html/latest/
+config从armbian获取，config开启了zram，方便移植到fedroa
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the reStructuredText markup notation.
+可在action直接编译，也可拉取到本地编译
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+dts改了ap6255，如果是原装6212可把6255的改动删除，把注释的6212恢复
+
+只测试了6.16、v6.16-rc7。在v6.16的基础上重新加的tspi文件，重新保存为v6.16.0
+
+本地编译建议切到v6.16.0  tag 再编译
+
+actions直接选择6.16.0的yml配置文件即可
+编译出的boot.img正常使用，armbian-boot有些bug，参考release说明
