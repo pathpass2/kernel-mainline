@@ -1,4 +1,4 @@
-name: Build 6.16.0-rk3566-tspi.img
+name: Build ap6212-6.16.1-rk3566-tspi.img
 
 on:
   workflow_dispatch:
