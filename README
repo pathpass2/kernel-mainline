@@ -1,20 +1,20 @@
 从主线fork
 
-添加了立创泰山派的编译所需文件
+添加了立创泰山派的编译boot.img所需文件
 
 驱动所需的firmware需要自行从armbian提取，这里没有上传。
 
-config从armbian获取，config开启了zram，方便移植到fedroa
+config是从armbian获取，config开启了zram，方便移植到fedroa
 
 可fork后在action直接编译，也可拉取到本地编译
 
 dts改动：
 wifi和蓝牙改了ap6255，如果是原装6212可把6255的改动删除，把注释的6212恢复。将emmc设为了mmc0，  rootfs引导设置为了mmcblk0p3，需要修改的话自行修改。波特率修改为了115200
 
-只测试了6.16、v6.16-rc7。在v6.16的基础上重新加的tspi文件，重新保存为v6.16.0
+只测试了6.16、v6.16-rc7。在v6.16的基础上加的tspi文件，重新保存为v6.16.0
 
-本地编译建议切到v6.16.0  tag 根据需求修改config和dts后再编译
+本地编译建议切到v6.16.0 tag 根据需求修改config和dts后再编译
 
-actions编译直接选择6.16.0的yml配置文件，编译出的tspi_boot.img。除非你的emmc分区、WiFi模块跟我一样，不然怕是有问题。只能自己手动修改dts后从新打标签。然后再修改action的yaml文件，指定自己的标签。
+actions编译直接选择6.16.0的yml配置文件，编译出的tspi_boot.img。除非你的emmc分区、WiFi模块跟我一样，不然怕是有问题。只能自己手动修改dts后重新打标签。然后再修改action的yml文件，指定自己的标签。
 
 编译出的tspi_boot.img刷入后正常使用，armbian-boot更新到armbian后有些bug，参考release说明
