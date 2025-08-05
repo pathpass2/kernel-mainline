@@ -159,6 +159,7 @@ jobs:
           
       - name: Build  armbian_boot
         run: |
+          mkdir -p ${{ env.armbian_path }}
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_path }}/vmlinuz-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config      ${{ env.armbian_path }}/config-${{ env.kernel_main_version }}           
