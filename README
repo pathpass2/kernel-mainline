@@ -10,13 +10,17 @@ config是从armbian获取的，在armbian-config的基础上开启了zram，方�
 
 dts改动：
 参照armbian更改了mmc0(sd卡)的参数，在emmc上有系统的情况下(比如emmc里装了安卓或者fedora)：可以从sd卡启动armbian-6.16.0，拔掉sd卡则从emmc启动系统
-wifi和蓝牙改了ap6255，如果是原装6212可把6255的改动删除，把注释的6212恢复。将sdhci(emmc)设为了mmcblk0，  rootfs引导设置为了mmcblk0p3，需要修改的话自行修改。波特率修改为了115200
+将sdhci(emmc)设为了mmcblk0， 使用boot.img的情况下  dts里面  rootfs引导设置为了mmcblk0p3，需要修改的话自行修改。波特率修改为了115200。
+如果是用于armbian的dts则未修改rootfs分区和波特率，以armbian镜像里的armbianENV.txt为主
 
-只测试了6.16、v6.16-rc7。在v6.16的基础上加的tspi文件，重新保存为v6.16.0
+
+只测试了6.16、v6.16-rc7。6.16-rc7的WiFi有点问题。在v6.16的基础上加的tspi文件，重新保存为v6.16.0(ap6255)、v6.16.1(ap6212)
+
 
 本地编译：
 v6.16.0改了WiFi-ap6255/ap6256,其他与v6.16.1一样
 如果是原装的ap6212-WiFi模块，建议切到v6.16.1 tag 根据需求修改config和dts后再编译
+
 
 actions编译：
 如果是原装的ap6212-WiFi模块，选择ap6212-6.16.1_kernel.yml  
