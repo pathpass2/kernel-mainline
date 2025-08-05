@@ -16,7 +16,7 @@
 
 	aliases {
 		mmc0 = &sdhci;  //设置emmc为mmcblk0
-		mmc1 = &sdmmc0;
+		mmc1 = &sdmmc0; //sd卡为mmcblk1
 //		mmc0 = &sdmmc0;
 //		mmc1 = &sdhci;
 		mmc2 = &sdmmc1;
@@ -594,8 +594,8 @@
 	pinctrl-0 = <&sdmmc0_bus4 &sdmmc0_clk &sdmmc0_cmd &sdmmc0_det>;
 	sd-uhs-sdr104;
 	supports-sd;
-	vmmc-supply = <&vcc3v3_sd>;
-	vqmmc-supply = <&vccio_sd>;
+	vmmc-supply = <&vcc3v3_sd>;  //声明sd卡
+	vqmmc-supply = <&vccio_sd>;  //更改vcc1v8为vccio_sd
 	status = "okay";
 };
 
