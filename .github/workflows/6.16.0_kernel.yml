@@ -84,6 +84,7 @@ jobs:
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
           echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
+          echo "dtb_path=${{ env.src_path }}/dtb-${{ env.kernel_main_version }}" >> $GITHUB_ENV
           
       - name: Build Kernel
         run: |
@@ -137,13 +138,12 @@ jobs:
 
       - name: edit dtb
         run: | 
-          mkdir -p ${{ env.armbian_path }}/dtb/rockchip
-          cd  ${{ env.armbian_path }}
+          mkdir -p ${{ env.dtb_path }}/dtb/rockchip
           echo "查看未修改前的dtb"
           ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
           echo "复制dtb到armbian_boot路径"
-          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/*.dtb   ${{ env.armbian_path }}/dtb/rockchip/
-          cd ${{ env.armbian_path }}/dtb/rockchip
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/*.dtb   ${{ env.dtb_path }}/dtb/rockchip
+          cd ${{ env.dtb_path }}/dtb/rockchip
           echo  "反编译"
           dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
           echo "删除未修改的dtb"
@@ -154,10 +154,8 @@ jobs:
           dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi.dtb
           echo "删除未修改的dts"
           rm -rf file.dts
-          cd ${{ env.armbian_path }}
-          tar -zcvf dtb-${{ env.kernel_main_version }}.tag.gz  dtb
-          mv dtb-${{ env.kernel_main_version }}.tag.gz  ${{ env.src_path }}/
-          rm -rf dtb
+          cd ${{ env.dtb_path }}/
+          tar -zcvf ./dtb-${{ env.kernel_main_version }}.tag.gz  ./dtb
           
       - name: Build  armbian_boot
         run: |
@@ -181,7 +179,7 @@ jobs:
             ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz
             ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
             ${{ env.armbian_path }}/armbian-boot-${{ env.kernel_main_version }}.tar.gz
-            ${{ env.src_path }}/dtb-${{ env.kernel_main_version }}.tag.gz
+            ${{ env.dtb_path }}/dtb-${{ env.kernel_main_version }}.tag.gz
           body: |
             Auto-built  ${{ github.event.inputs.target_tag }}
             Kernel version: ${{ env.kernel_main_version }}
