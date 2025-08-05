@@ -147,7 +147,8 @@ jobs:
           echo "删除未修改的dts"
           rm -rf file.dts
           cd ${{ env.dtb_path }}/
-          tar -zcvf dtb-${{ env.kernel_main_version }}.tag.gz  dtb
+          tar -zcf dtb-${{ env.kernel_main_version }}.tag.gz  dtb
+          tar -tf dtb-${{ env.kernel_main_version }}.tag.gz
           
       - name: Build  armbian_boot
         run: |
