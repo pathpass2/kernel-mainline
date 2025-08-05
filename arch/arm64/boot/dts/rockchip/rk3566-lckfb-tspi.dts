@@ -593,8 +593,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdmmc0_bus4 &sdmmc0_clk &sdmmc0_cmd &sdmmc0_det>;
 	sd-uhs-sdr104;
+	supports-sd;
 	vmmc-supply = <&vcc3v3_sd>;
-	vqmmc-supply = <&vcc_1v8>;
+	vqmmc-supply = <&vccio_sd>;
 	status = "okay";
 };
 
