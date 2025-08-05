@@ -11,8 +11,8 @@ on:
 
 env:
   ARCH: arm64
-  src_path: /home/runner/work/linux-main/linux-main
-  modules_path: /home/runner/work/linux-main/linux-main/modules/lib/modules
+  src_path: /home/runner/work/linux/linux
+  modules_path: /home/runner/work/linux/linux/modules/lib/modules
   
 
   
