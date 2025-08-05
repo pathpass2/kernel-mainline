@@ -182,9 +182,9 @@ jobs:
             ${{ env.armbian_path }}/armbian-boot-${{ env.kernel_main_version }}.tar.gz
             ${{ env.dtb_path }}/dtb-${{ env.kernel_main_version }}.tag.gz
           body: |
-            Auto-built  ${{ github.event.inputs.target_tag }}
+            tag：  ${{ github.event.inputs.target_tag }}
             Kernel version: ${{ env.kernel_main_version }}
-            
+            tspi-ap6212
           draft: false
           prerelease: false
           allowUpdates: true
