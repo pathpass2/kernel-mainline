@@ -17,15 +17,11 @@
 	aliases {
 		mmc0 = &sdhci;  //设置emmc为mmcblk0
 		mmc1 = &sdmmc0; //sd卡为mmcblk1
-//		mmc0 = &sdmmc0;
-//		mmc1 = &sdhci;
 		mmc2 = &sdmmc1;
 	};
 
 	chosen: chosen {
-//如果使用armbian-boot,需要注释，或者删掉这一行
 		bootargs = "root=/dev/mmcblk0p3 rootfstype=ext4 rw rootwait console=ttyS2,115200";
-//
 		stdout-path = "serial2:115200n8";
 	};
 
@@ -618,8 +614,7 @@
 	status = "okay";
 
 	brcmf: wifi@1 {
-		compatible = "brcm,bcm43455-fmac";  //ap6255
-//		compatible = "brcm,bcm4329-fmac";
+		compatible = "brcm,bcm4329-fmac";
 		reg = <1>;
 		interrupt-parent = <&gpio2>;
 		interrupts = <RK_PB2 IRQ_TYPE_LEVEL_HIGH>;
@@ -646,8 +641,7 @@
 	status = "okay";
 
 	bluetooth: bluetooth {
-		compatible = "brcm,bcm4345c5";  //ap6255
-//		compatible = "brcm,bcm43438-bt";
+		compatible = "brcm,bcm43438-bt";
 		clocks = <&rk809 1>;
 		clock-names = "lpo";
 		max-speed = <3000000>;
