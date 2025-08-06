@@ -191,8 +191,8 @@ jobs:
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
           ls  -lh
-          tar -zcvf boot-${{ env.kernel_main_version }}.tar.gz   *
-          echo "查看/boot下所有文件"
+          tar -zcf boot-${{ env.kernel_main_version }}.tar.gz   *
+          echo "查看打包后所有文件"
           ls -lh
 
       - name: Build  ap6212_armbian-6.16.0-boot
