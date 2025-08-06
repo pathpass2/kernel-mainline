@@ -175,8 +175,8 @@ jobs:
     steps:
       - name:  generate_uinitrd 
         run: |
-          sudo cp -r ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }} /usr/src/
-          sudo cp -r  ${{ env.modules_path }}/${{ env.kernel_main_version }} /lib/modules/ 
+          sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }} /usr/src/
+          sudo cp -a  ${{ env.modules_path }}/${{ env.kernel_main_version }} /lib/modules/ 
           sudo ln -sf /usr/src/linux-headers-${{ env.kernel_main_version }} /lib/modules/${{ env.kernel_main_version }}/build
           mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/ 
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
