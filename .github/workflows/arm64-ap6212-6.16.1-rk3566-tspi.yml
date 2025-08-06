@@ -1,4 +1,4 @@
-name: Build arm64-ap6212-6.16.1-rk3566-tspi.img
+name: Build arm64_ap6212_6.16.1rk3566-tspi.img
 
 on:
   workflow_dispatch:
@@ -167,7 +167,7 @@ jobs:
           mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /usr/src/
           mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/
           
-          if [ !-d /boot ];then
+          if [[ !-d /boot ]];then
             mkdir -p /boot
           else
             rm -rf /boot/*
