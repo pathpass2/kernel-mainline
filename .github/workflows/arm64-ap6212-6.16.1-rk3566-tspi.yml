@@ -73,8 +73,11 @@ jobs:
         run: |
           wget  https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
           tar xf  arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
-          echo  "$(pwd)/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
-
+          echo  "${{ env.src_path }}/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
+          ech0   "cross_compile=${{ env.src_path }}/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu- >> $GITHUB_PATH
+          echo   "cc=${{env.CROSS_COMPILE}}gcc"  >> $GITHUB_PATH
+          echo   "ld=${{env.CROSS_COMPILE}}ld.bfd"  >> $GITHUB_PATH
+       
       - name: Get Kernel Version
         run: |
           # 获取内核版本号
@@ -91,11 +94,11 @@ jobs:
       - name: Build Kernel
         run: |
           mkdir -p  ${{ env.armbian_init_path }}
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
-          #make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  olddefconfig
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
+          make ARCH=$ARCH CROSS_COMPILE=${{env.cross_compile}} CC=${{env.cc}} LD=${{env.ld}} tspi_defconfig
+          #make ARCH=$ARCH CROSS_COMPILE=${{env.cross_compile}} CC=${{env.cc}} LD=${{env.ld}}  olddefconfig
+          make ARCH=$ARCH CROSS_COMPILE=${{env.cross_compile}} CC=${{env.cc}} LD=${{env.ld}}  dtbs
+          make ARCH=$ARCH CROSS_COMPILE=${{env.cross_compile}} CC=${{env.cc}} LD=${{env.ld}}  rk3566-lckfb-tspi.img  -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=${{env.cross_compile}} CC=${{env.cc}} LD=${{env.ld}}  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
           echo  "查看编译好的boot.img"
           ls -lh boot.img
