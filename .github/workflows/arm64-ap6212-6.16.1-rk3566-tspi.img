@@ -1,4 +1,4 @@
-name: arm64-Build ap6212-6.16.1-rk3566-tspi.img
+name: Build arm64-ap6212-6.16.1-rk3566-tspi.img
 
 on:
   workflow_dispatch:
