@@ -173,7 +173,7 @@ jobs:
             ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz
             ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
             ${{ env.armbian_path }}/armbian-boot-${{ env.kernel_main_version }}.tar.gz
-            ${{ env.dtb_path }}/dtb-${{ env.kernel_main_version }}.tag.gz
+            ${{ env.dtb_path }}/dtb-${{ env.kernel_main_version }}.tar.gz
             
           body: |
             master-latest 
