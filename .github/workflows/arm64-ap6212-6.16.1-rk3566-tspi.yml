@@ -95,7 +95,7 @@ jobs:
       - name: Build Kernel
         run: |
           mkdir -p  ${{ env.armbian_init_path }}
-          make ARCH=$ARCH CROSS_COMPILE=${{env.CROSS_COMPILE}} CC=${{env.CC}} LD=${{env.LD}} tspi_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=${{env.CROSS_COMPILE}}  tspi_defconfig
           #make ARCH=$ARCH CROSS_COMPILE=${{env.CROSS_COMPILE}} CC=${{env.CC}} LD=${{env.LD}}  olddefconfig
           make ARCH=$ARCH CROSS_COMPILE=${{env.CROSS_COMPILE}} CC=${{env.CC}} LD=${{env.LD}}  dtbs
           make ARCH=$ARCH CROSS_COMPILE=${{env.CROSS_COMPILE}} CC=${{env.CC}} LD=${{env.LD}}  rk3566-lckfb-tspi.img  -j$(nproc)
