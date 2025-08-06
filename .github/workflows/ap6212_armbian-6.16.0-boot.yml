@@ -104,7 +104,7 @@ jobs:
         run: |
           mkdir -p  ${{ env.armbian_init_path }}
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}  tspi_defconfig
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs Image modules zImage
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs Image modules 
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"       
           echo "当前所在编译路径：$(pwd)"
@@ -180,11 +180,6 @@ jobs:
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   /boot/vmlinuz-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/System.map   /boot/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config     /boot/config-${{ env.kernel_main_version }} 
-
-          if [[ -f ${{ env.src_path }}/zImage ]];then
-            cp -a ${{ env.src_path }}/zImage  /boot/zImage-${{ env.kernel_main_version }}
-          fi
-
           cd  /boot
           [[ -f "${{env.initramfs_conf}}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" ${{env.initramfs_conf}}
           echo "制作initrd.ing、uInitrd"
