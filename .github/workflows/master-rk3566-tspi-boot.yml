@@ -83,8 +83,6 @@ jobs:
       - name: Build Kernel
         run: |
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          #make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  olddefconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
@@ -104,7 +102,7 @@ jobs:
           echo "查看模块详情"
           ls -l ${{ env.kernel_main_version }}
           echo "打包modules"
-          tar -zcvf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
+          tar -zcf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
           echo "查看打包的modules.tar.gz"
           ls  -l
      
@@ -123,61 +121,36 @@ jobs:
           cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cd ${{ env.src_path }}
-          tar -zcvf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
+          tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
           echo "当前所在路径：$(
           echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
-          ls  -l ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz          
+          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz          
 
-      - name: edit dtb
-        run: | 
-          mkdir -p ${{ env.dtb_path }}/dtb/rockchip
-          echo "查看未修改前的dtb"
-          ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
-          echo "复制dtb到armbian_boot路径"
-          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/*.dtb   ${{ env.dtb_path }}/dtb/rockchip
-          cd ${{ env.dtb_path }}/dtb/rockchip
-          echo  "反编译"
-          dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
-          echo "删除未修改的dtb"
-          rm -rf rk3566-lckfb-tspi.dtb
-          echo "修改dts"
-          sed -i '/mmcblk0p3/d'  file.dts
-          echo "重新编译dtb"
-          dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi.dtb
-          echo "删除未修改的dts"
-          rm -rf file.dts
-          cd ${{ env.dtb_path }}/
-          tar -zcf dtb-${{ env.kernel_main_version }}.tar.gz  dtb
-          
-          
-      - name: Build  armbian_boot
+      - name: Compression_boot_files
         run: |
-          mkdir -p ${{ env.armbian_path }}
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_path }}/vmlinuz-${{ env.kernel_main_version }}
-          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_path }}/System.map-${{ env.kernel_main_version }}
-          cp -a ${{ env.src_path }}/.config      ${{ env.armbian_path }}/config-${{ env.kernel_main_version }}           
-          cd   ${{ env.armbian_path }}
-          cat > readme.txt << EOF
-          initrd.img、uImage需要自己用armbian的机器重新生成，我不会在actions上生成initrd.img和uImage
-          EOF
-          tar  -zcvf armbian-boot-${{ env.kernel_main_version }}.tar.gz   *  
-                
-      - name: Upload Kernel to Release
+          mkdir ${{ env.src_path }}/boot_files
+          cd ${{ env.src_path }}/boot_files
+          mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz  .
+          mv ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz   .
+          mv ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img  .
+          tar -zcvf rk3566-tspi-${{ env.kernel_main_version }}.tar.gz   * 
+          
+
+      - name: Upload Kernel to Release  master
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name || format('v{0}', env.kernel_main_version) }}
-          name: "Kernel ${{ env.kernel_main_version }}"
-          
+          name: "Kernel ${{ env.kernel_main_version }}"          
           artifacts: |
-            ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
-            ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz
-            ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
-            ${{ env.armbian_path }}/armbian-boot-${{ env.kernel_main_version }}.tar.gz
-            ${{ env.dtb_path }}/dtb-${{ env.kernel_main_version }}.tar.gz
-            
+            ${{ env.src_path }}/boot_files/rk3566-tspi-${{ env.kernel_main_version }}.tar.gz          
           body: |
-            master-latest 
-            ap6255  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}
+            master  主线最新版本，不一定能稳定使用
+            tag：  ${{ github.event.inputs.target_tag }}
+            Kernel version: ${{ env.kernel_main_version }}
+            rk3566-lckfb-tspi-ap6255
+            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
+            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径
           draft: false
           prerelease: false
           allowUpdates: true
+          replaceArtifacts: false
