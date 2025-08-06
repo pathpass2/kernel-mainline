@@ -98,9 +98,9 @@ jobs:
           mkdir -p  ${{ env.armbian_init_path }}
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}  tspi_defconfig
           #make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}    olddefconfig
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} CC=${{env.cc}} LD=${{env.lld}}  dtbs
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} CC=${{env.cc}} LD=${{env.lld}}  rk3566-lckfb-tspi.img  -j$(nproc)
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} CC=${{env.cc}} LD=${{env.lld}}  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}    dtbs
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   rk3566-lckfb-tspi.img  -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
           echo  "查看编译好的boot.img"
           ls -lh boot.img
