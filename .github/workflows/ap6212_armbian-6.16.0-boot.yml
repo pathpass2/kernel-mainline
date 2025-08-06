@@ -168,14 +168,14 @@ jobs:
           tar -zcf dtb-rockchip-${{ env.kernel_main_version }}.tar.gz  *
           mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
 
+
+  create_initrd:
+    needs: build
+    runs-on: ubuntu-22.04-arm
+    steps:
       - name:  generate_uinitrd 
         run: |
-          
-          mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /usr/src/
-          mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/
-          ln -sf /usr/src/linux-headers-${{ env.kernel_main_version }}   /lib/modules/${{ env.kernel_main_version }}/build
-          
-
+          mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/ 
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
