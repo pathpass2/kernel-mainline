@@ -97,25 +97,16 @@ jobs:
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
           echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
           echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
-          echo   "cc=${{env.corss_compile}}gcc"  >> $GITHUB_PATH
-          echo   "lld=${{env.corss_compile}}ld.bfd"  >> $GITHUB_PATH
+
           
           
       - name: Build Kernel
         run: |
           mkdir -p  ${{ env.armbian_init_path }}
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}  tspi_defconfig
-          #make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}    olddefconfig
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}    dtbs
-          #make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   rk3566-lckfb-tspi.img  -j$(nproc)
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} Image modules zImage
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs Image modules zImage
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
-          echo "${{ env.kernel_main_version }}"
-          echo  "查看编译好的boot.img"
-          ls -lh boot.img
-          echo "重命名boot.img为rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img"
-          mv boot.img  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
-          ls  -lh      rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img          
+          echo "${{ env.kernel_main_version }}"       
           echo "当前所在编译路径：$(pwd)"
           # 打包模块
           cd  ${{ env.modules_path }}
