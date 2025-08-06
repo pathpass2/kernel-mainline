@@ -162,7 +162,7 @@ jobs:
           dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi.dtb
           echo "删除未修改的dts"
           rm -rf file.dts
-          cd ${{ env.dtb_path }}/dtb/rockchip
+          echo "打包dtb"
           tar -zcvf dtb-rockchip-${{ env.kernel_main_version }}.tar.gz  *
           mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
 
@@ -199,6 +199,7 @@ jobs:
         run: |
           cd ${{ env.armbian_path }}/
           mv /boot/boot-${{ env.kernel_main_version }}.tar.gz   .
+          echo "查看armbian_boot下所有需要打包的文件"
           ls -lh
           tar -zcvf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
           
