@@ -144,7 +144,7 @@ jobs:
           artifacts: |
             ${{ env.src_path }}/boot_files/rk3566-tspi-${{ env.kernel_main_version }}.tar.gz          
           body: |
-            master  主线最新版本，不一定能稳定使用
+            master  主线最新版本，不一定能稳定使用。设备树默认是ap6255的WiFi模块
             tag：  ${{ github.event.inputs.target_tag }}
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6255
