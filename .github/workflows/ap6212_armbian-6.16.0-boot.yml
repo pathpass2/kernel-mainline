@@ -96,12 +96,14 @@ jobs:
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
           echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
 
           
           
       - name: Build Kernel
         run: |
           mkdir -p  ${{ env.armbian_path }}/
+          mkdir -p  ${{ env.armbian_file_path }}
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}  tspi_defconfig
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs Image modules 
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
@@ -117,7 +119,7 @@ jobs:
           echo "查看模块详情"
           ls -lh ${{ env.kernel_main_version }}
           echo "打包modules"
-          tar -zcvf modules-${{ env.kernel_main_version }}.tar.gz   ${{ env.kernel_main_version }}
+          tar -zcf modules-${{ env.kernel_main_version }}.tar.gz   ${{ env.kernel_main_version }}
           echo "查看打包的modules.tar.gz"
           ls  -lh
           mv  modules-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
@@ -137,7 +139,7 @@ jobs:
           cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cd ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
-          tar -zcvf  headers-${{ env.kernel_main_version }}.tar.gz   *
+          tar -zcf  headers-${{ env.kernel_main_version }}.tar.gz   *
           echo "当前所在路径：$(pwd)"
           echo "查看打包的headers-${{ env.kernel_main_version }}.tar.gz"
           ls  -lh 
@@ -163,34 +165,32 @@ jobs:
           echo "删除未修改的dts"
           rm -rf file.dts
           echo "打包dtb"
-          tar -zcvf dtb-rockchip-${{ env.kernel_main_version }}.tar.gz  *
+          tar -zcf dtb-rockchip-${{ env.kernel_main_version }}.tar.gz  *
           mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
 
       - name:  generate_uinitrd 
         run: |
-          rm -rf /usr/src/*
-          rm -rf /lib/modules/*
+          
           mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /usr/src/
           mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/
           ln -sf /usr/src/linux-headers-${{ env.kernel_main_version }}   /lib/modules/${{ env.kernel_main_version }}/build
           
-          if [[ ! -d "/boot" ]];then
-            mkdir -p /boot
-          else
-            rm -rf /boot/*
-          fi
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   /boot/vmlinuz-${{ env.kernel_main_version }}
-          cp -a ${{ env.src_path }}/System.map   /boot/System.map-${{ env.kernel_main_version }}
-          cp -a ${{ env.src_path }}/.config     /boot/config-${{ env.kernel_main_version }} 
+
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
           cd  /boot
           [[ -f "${{env.initramfs_conf}}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" ${{env.initramfs_conf}}
           echo "制作initrd.ing、uInitrd"
-          update-initramfs -c -k ${{ env.kernel_main_version }}
+          update-initramfs -c -k ${{ env.kernel_main_version }} -o ${{ env.armbian_file_path }}/
 
            if [[ ! -f "/boot/uInitrd"* ]]; then
              
-            mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  initrd.img-${{ env.kernel_main_version }}  uInitrd-6.16.0  || mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  initrd.img  uInitrd-6.16.0 
+            mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }}  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }}  || mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  ${{ env.armbian_file_path }}/initrd.img  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }} 
           fi
+          cd ${{ env.armbian_file_path }}
+          echo "查看未打包的boot文件"
+          ls  -lh
           tar -zcvf boot-${{ env.kernel_main_version }}.tar.gz   *
           echo "查看/boot下所有文件"
           ls -lh
@@ -198,10 +198,10 @@ jobs:
       - name: Build  ap6212_armbian-6.16.0-boot
         run: |
           cd ${{ env.armbian_path }}/
-          mv /boot/boot-${{ env.kernel_main_version }}.tar.gz   .
+          mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
           echo "查看armbian_boot下所有需要打包的文件"
           ls -lh
-          tar -zcvf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
+          tar -zcf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
           
       - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
         uses: ncipollo/release-action@v1
