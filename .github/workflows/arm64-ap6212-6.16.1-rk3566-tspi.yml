@@ -40,6 +40,13 @@ jobs:
           find . -type f -name "mkbootimg" -exec chmod +x {} \;
           chmod +x ./scripts/*
           
+      - name: Disable incorrect binfmt_misc
+        run: |
+          echo "Current binfmt_misc entries:"
+          ls -l /proc/sys/fs/binfmt_misc/
+          echo "Disabling x86_64 interpreter if present..."
+          echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-x86_64 2>/dev/null || true
+          echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-x86_64-static 2>/dev/null || true    
       
 
       - name: Install Latest LZ4
@@ -82,7 +89,8 @@ jobs:
         run: |
           # 获取内核版本号
           echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
-
+          which aarch64-none-linux-gnu-gcc
+          aarch64-none-linux-gnu-gcc --version
 
       - name: Set armbian_path
         run: |
