@@ -191,7 +191,7 @@ jobs:
           update-initramfs -c -k ${{ env.kernel_main_version }}
           tar -zcvf boot-${{ env.kernel_main_version }}.tar.gz   * 
 
-      - name: Build  armbian_boot
+      - name: Build  ap6212_armbian-6.16.0-boot
         run: |
           mkdir -p ${{ env.armbian_path }}
           mv /boot/boot-${{ env.kernel_main_version }}.tar.gz   .
@@ -213,7 +213,7 @@ jobs:
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6212
             rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
-            armbian_boot-${{ env.kernel_main_version }}.tar.gz   更新armbian的压缩包，解压缩后自行替换里面的文件
+            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径
           draft: false
           prerelease: false
           allowUpdates: true
