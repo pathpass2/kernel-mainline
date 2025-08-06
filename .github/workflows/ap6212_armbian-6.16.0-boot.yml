@@ -191,7 +191,8 @@ jobs:
              
             mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  initrd.img-${{ env.kernel_main_version }}  uInitrd-6.16.0  || mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  initrd.img  uInitrd-6.16.0 
           fi
-          tar -zcvf boot-${{ env.kernel_main_version }}.tar.gz   * 
+          tar -zcvf boot-${{ env.kernel_main_version }}.tar.gz   *
+          echo "查看/boot下所有文件"
           ls -lh
 
       - name: Build  ap6212_armbian-6.16.0-boot
