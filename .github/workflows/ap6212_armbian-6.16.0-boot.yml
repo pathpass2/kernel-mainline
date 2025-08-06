@@ -173,6 +173,14 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04-arm
     steps:
+      - name: set env
+        run: |
+          echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
+          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
+          echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
+          echo  "$(pwd)/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
+          
       - name:  generate_uinitrd 
         run: |
           sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }} /usr/src/
