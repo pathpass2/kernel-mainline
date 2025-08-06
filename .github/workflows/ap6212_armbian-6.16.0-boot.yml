@@ -140,7 +140,7 @@ jobs:
           tar -zcvf  headers-${{ env.kernel_main_version }}.tar.gz   *
           echo "当前所在路径：$(pwd)"
           echo "查看打包的headers-${{ env.kernel_main_version }}.tar.gz"
-          ls  -lh ${{ env.src_path }}/headers-${{ env.kernel_main_version }}.tar.gz
+          ls  -lh 
           mv   headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
      
 
