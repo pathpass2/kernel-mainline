@@ -1,4 +1,4 @@
-name: Build arm64_ap6212_6.16.1rk3566-tspi.img
+name: Build ap6212_armbian-boot
 
 on:
   workflow_dispatch:
