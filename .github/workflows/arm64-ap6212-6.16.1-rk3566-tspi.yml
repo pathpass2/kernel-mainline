@@ -107,7 +107,8 @@ jobs:
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}  tspi_defconfig
           #make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}    olddefconfig
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}    dtbs
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   rk3566-lckfb-tspi.img  -j$(nproc)
+          #make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   rk3566-lckfb-tspi.img  -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} Image modules zImage
           make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
           echo  "查看编译好的boot.img"
@@ -211,7 +212,6 @@ jobs:
           name: "Kernel ${{ env.kernel_main_version }}"
           
           artifacts: |
-            ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
             ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz
             ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
             ${{ env.armbian_path }}/armbian-boot-${{ env.kernel_main_version }}.tar.gz
@@ -223,3 +223,4 @@ jobs:
           draft: false
           prerelease: false
           allowUpdates: true
+          replaceArtifacts: false
