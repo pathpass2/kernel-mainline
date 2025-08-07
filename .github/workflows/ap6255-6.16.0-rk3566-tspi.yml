@@ -83,12 +83,15 @@ jobs:
       - name: Set armbian_path
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
-          echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
           echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
           
       - name: Build Kernel
         run: |
+          mkdir -p  ${{ env.armbian_path }}/
+          mkdir -p  ${{ env.armbian_file_path }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
@@ -108,10 +111,10 @@ jobs:
           echo "查看模块详情"
           ls -lh ${{ env.kernel_main_version }}
           echo "打包modules"
-          tar -zcvf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
+          tar -zcf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
           echo "查看打包的modules.tar.gz"
           ls  -lh
-     
+           
       
       - name: Build Kernel-headers
         run: |
@@ -127,11 +130,12 @@ jobs:
           cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cd ${{ env.src_path }}
-          tar -zcvf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
+          tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
           echo "当前所在路径：$(pwd)"
           echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
           ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
-       
+
+      #打包boot.img、modules、headers         
       - name: Compression_boot_files
         run: |
           mkdir ${{ env.src_path }}/boot_files
@@ -140,7 +144,64 @@ jobs:
           mv ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz   .
           mv ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img  .
           tar -zcvf rk3566-tspi-${{ env.kernel_main_version }}.tar.gz   *
+
+      #制作armbian_boot所需的modules、headers、boot-files、dtb
+      - name: create  armbian_modules
+        run: |
+          cd ${{ env.modules_path }}
+          tar -zcf modules-${{ env.kernel_main_version }}.tar.gz   ${{ env.kernel_main_version }}
+          mv  modules-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+      
+      - name: create armbian_headers
+        run: |
+          cd ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          tar -zcf  headers-${{ env.kernel_main_version }}.tar.gz   *
+          mv   headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+
           
+      - name: edit armbian_dtb
+        run: | 
+          mkdir -p ${{ env.dtb_path }}/dtb/rockchip
+          echo "查看未修改前的dtb"
+          ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
+          echo "复制dtb到armbian_boot路径"
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/*.dtb   ${{ env.dtb_path }}/dtb/rockchip
+          cd ${{ env.dtb_path }}/dtb/rockchip
+          echo  "反编译"
+          dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
+          echo "删除未修改的dtb"
+          rm -rf rk3566-lckfb-tspi.dtb
+          echo "修改dts"
+          sed -i '/mmcblk0p3/d'  file.dts
+          echo "重新编译dtb"
+          dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi.dtb
+          echo "删除未修改的dts"
+          rm -rf file.dts
+          echo "打包dtb"
+          tar -zcf dtb-rockchip-${{ env.kernel_main_version }}.tar.gz  *
+          mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
+
+
+      - name:  copy armbian_boot_file 
+        run: |
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
+
+          cd ${{ env.armbian_file_path }}
+          echo "查看未打包的boot文件"
+          ls  -lh
+          tar -zcf boot-${{ env.kernel_main_version }}.tar.gz   *
+          echo "查看打包后所有文件"
+          ls -lh
+
+      - name: Build  ap6212_armbian-6.16.0-boot
+        run: |
+          cd ${{ env.armbian_path }}/
+          mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
+          echo "查看armbian_boot下所有需要打包的文件"
+          ls -lh
+          tar -zcf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
           
       - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
         uses: ncipollo/release-action@v1
@@ -150,12 +211,13 @@ jobs:
           
           artifacts: |
             ${{ env.src_path }}/boot_files/rk3566-tspi-${{ env.kernel_main_version }}.tar.gz
+            ${{ env.armbian_path }}/armbian_boot-${{ env.kernel_main_version }}.tar.gz
           body: |
             tag：  ${{ github.event.inputs.target_tag }}
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6255
-            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
-            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径
+            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     里面包含boot.img、modules、headers、解压缩后，通过瑞芯微刷机工具刷入boot.img
+            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径 压缩包里没有initrd.img、uImage，需要自己在armbian上制作 
             
             
           draft: false
