@@ -184,8 +184,8 @@ jobs:
 
       - name:  copy armbian_boot_file 
         run: |
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
-          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
 
           cd ${{ env.armbian_file_path }}
@@ -195,7 +195,7 @@ jobs:
           echo "查看打包后所有文件"
           ls -lh
 
-      - name: Build  ap6212_armbian-6.16.0-boot
+      - name: Build  ap6212_armbian_6.16.0-boot
         run: |
           cd ${{ env.armbian_path }}/
           mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
