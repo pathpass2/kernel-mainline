@@ -182,12 +182,13 @@ jobs:
 
           [[ -f "${{env.initramfs_conf}}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" ${{env.initramfs_conf}}
           echo "制作initrd.ing、uInitrd"
-          update-initramfs -c -k ${{ env.kernel_main_version }} -o ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }}
+          sudo update-initramfs -c -k ${{ env.kernel_main_version }} 
 
-           if [[ ! -f "${{ env.armbian_file_path }}/uInitrd"* ]]; then
+           if [[ ! -f "/boot/uInitrd-${{ env.kernel_main_version }}" ]]; then
              
-            mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }}  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }}  || mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  ${{ env.armbian_file_path }}/initrd.img  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }} 
+             sudo mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  /boot/initrd.img-${{ env.kernel_main_version }}  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }}  || mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  /boot/initrd.img  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }} 
           fi
+          sudo cp  /boot/initrd.img-${{ env.kernel_main_version }}  ${{ env.armbian_file_path }}
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
           ls  -lh
