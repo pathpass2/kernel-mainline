@@ -186,7 +186,7 @@ jobs:
         run: |
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
-          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
 
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
