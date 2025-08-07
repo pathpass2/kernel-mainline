@@ -216,7 +216,7 @@ jobs:
             tag：  ${{ github.event.inputs.target_tag }}
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6212
-            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
+            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     里面包含boot.img、modules、headers、解压缩后，通过瑞芯微刷机工具刷入boot.img
             armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径 压缩包里没有initrd.img、uImage，需要自己在armbian上制作 
             
             
