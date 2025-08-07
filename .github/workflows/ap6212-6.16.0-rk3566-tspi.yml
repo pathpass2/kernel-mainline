@@ -202,6 +202,8 @@ jobs:
           echo "查看armbian_boot下所有需要打包的文件"
           ls -lh
           tar -zcf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
+          echo  "查看打包后的文件是否存在"
+          ls -lh
           
       - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
         uses: ncipollo/release-action@v1
