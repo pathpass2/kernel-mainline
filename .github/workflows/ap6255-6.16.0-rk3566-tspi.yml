@@ -184,9 +184,9 @@ jobs:
 
       - name:  copy armbian_boot_file 
         run: |
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
-          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
-          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
 
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
@@ -202,6 +202,8 @@ jobs:
           echo "查看armbian_boot下所有需要打包的文件"
           ls -lh
           tar -zcf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
+          echo  "查看打包后的文件是否存在"
+          ls -lh
           
       - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
         uses: ncipollo/release-action@v1
