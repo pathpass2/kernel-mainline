@@ -173,7 +173,7 @@ jobs:
       - name:  generate_uinitrd 
         run: |
           #sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }} /usr/src/
-          sudo  cp -a  ${{ env.modules_path }}/${{ env.kernel_main_version }} /lib/modules/ 
+          sudo  mount --bind  ${{ env.modules_path }}/${{ env.kernel_main_version }} /lib/modules/${{ env.kernel_main_version }} 
           #sudo ln -sf /usr/src/linux-headers-${{ env.kernel_main_version }} /lib/modules/${{ env.kernel_main_version }}/build
           mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/ 
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
@@ -182,7 +182,7 @@ jobs:
 
           [[ -f "${{env.initramfs_conf}}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" ${{env.initramfs_conf}}
           echo "制作initrd.ing、uInitrd"
-          update-initramfs -c -k ${{ env.kernel_main_version }} -o ${{ env.armbian_file_path }}/
+          update-initramfs -c -k ${{ env.kernel_main_version }} -o ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }}
 
            if [[ ! -f "${{ env.armbian_file_path }}/uInitrd"* ]]; then
              
