@@ -76,6 +76,7 @@ jobs:
           wget  https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
           tar xf  arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
           echo  "$(pwd)/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
+          
 
       - name: Disable incorrect binfmt_misc
         run: |
@@ -170,25 +171,12 @@ jobs:
 
 
           
-      - name:  generate_uinitrd 
+      - name:  copy armbian_boot_file 
         run: |
-          #sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }} /usr/src/
-          sudo  mount --bind  ${{ env.modules_path }}/${{ env.kernel_main_version }} /lib/modules/${{ env.kernel_main_version }} 
-          #sudo ln -sf /usr/src/linux-headers-${{ env.kernel_main_version }} /lib/modules/${{ env.kernel_main_version }}/build
-          mv ${{ env.modules_path }}/${{ env.kernel_main_version }}    /lib/modules/ 
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
 
-          [[ -f "${{env.initramfs_conf}}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" ${{env.initramfs_conf}}
-          echo "制作initrd.ing、uInitrd"
-          sudo update-initramfs -c -k ${{ env.kernel_main_version }} 
-
-           if [[ ! -f "/boot/uInitrd-${{ env.kernel_main_version }}" ]]; then
-             
-             sudo mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  /boot/initrd.img-${{ env.kernel_main_version }}  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }}  || mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0x00000000 -e 0x00000000 -n "uInitrd" -d  /boot/initrd.img  ${{ env.armbian_file_path }}/uInitrd-${{ env.kernel_main_version }} 
-          fi
-          sudo cp  /boot/initrd.img-${{ env.kernel_main_version }}  ${{ env.armbian_file_path }}
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
           ls  -lh
@@ -217,7 +205,7 @@ jobs:
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6212
             rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
-            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径
+            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径 压缩包里没有initrd.img、uImage，需要自己在armbian上制作
           draft: false
           prerelease: false
           allowUpdates: true
