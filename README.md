@@ -11,6 +11,8 @@ config是从armbian获取的，在armbian-config的基础上开启了zram，方�
 dts改动：
 参照armbian更改了mmc1(sd卡)的参数，在emmc上有系统的情况下(比如emmc里装了安卓或者fedora)：可以从sd卡启动armbian-6.16.0，拔掉sd卡则从emmc启动系统
 将sdhci(emmc)设为了mmcblk0， 使用boot.img的情况下  dts里面  rootfs引导设置为了mmcblk0p3，需要修改的话自行修改。波特率修改为了115200。
+<img width="1497" height="858" alt="image" src="https://github.com/user-attachments/assets/1c937dcc-557b-4758-a3c3-8cd348dc8e42" />
+
 如果是用于armbian的dts则未修改rootfs分区和波特率，以armbian镜像里的armbianENV.txt为主
 
 
@@ -27,3 +29,5 @@ actions编译：
 ps：手里没有ap6212，买来就换了ap6255，所以没办法测试ap6212的蓝牙、WiFi
 
 Release里的armbian_boot.tar.gz。里面缺少initrd.img、uInitrd。需要自己到armbian机器上制作，我不会在actions上制作这个
+<img width="1239" height="876" alt="d94e0ee5c0448b20ed7180c561af322c" src="https://github.com/user-attachments/assets/4c9fdd7e-b69f-4fe7-bea9-32206f17d8bc" />
+
