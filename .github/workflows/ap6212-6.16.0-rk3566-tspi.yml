@@ -244,7 +244,8 @@ jobs:
           
           # 生成 initrd
           echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
-          /usr/sbin/mkinitramfs -c gzip -v -o /boot/initrd.img-${{ env.kernel_main_version }} ${{ env.kernel_main_version }}
+          [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" /etc/initramfs-tools/update-initramfs.conf
+          update-initramfs -c -k  ${{ env.kernel_main_version }}
           
           # 生成 uInitrd
           echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
