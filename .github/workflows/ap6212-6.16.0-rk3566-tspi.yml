@@ -260,12 +260,23 @@ jobs:
           ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
           EOF
 
+
       - name: Collect results
         run: |
           sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
           sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
           echo "复制出来的initrd.img、uInitrd"
-          ls -lh ${{ env.armbian_file_path }}          
+          ls -lh ${{ env.armbian_file_path }} 
+
+      - name: Clean up
+        run: |
+          sudo umount /mnt/chroot/dev
+          sudo umount /mnt/chroot/proc
+          sudo umount /mnt/chroot/sys
+          sudo rm -rf /mnt/chroot
+          
+      - name: cp armbian_boot_file
+        run: |
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
