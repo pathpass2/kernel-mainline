@@ -5,6 +5,11 @@ on:
     workflows: ["Build ap6212_armbian-6.16.0-boot"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: "手动指定内核版本（仅用于调试）"
+        required: false
+        default: "6.16.0"
 
 jobs:
   build_initrd:
