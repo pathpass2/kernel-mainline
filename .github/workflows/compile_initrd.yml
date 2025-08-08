@@ -24,61 +24,70 @@ jobs:
           script: |
             try {
               const run = await github.rest.actions.getWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner: 'pathpass2',
+                repo: 'linux',
                 run_id: ${{ github.event.inputs.source_run_id }}
               });
               console.log(`Found source workflow run: ${run.data.id}`);
               return true;
             } catch (error) {
-              core.setFailed(`Source workflow run not found: ${error.message}`);
+              core.setFailed(`❌ Source workflow run not found: ${error.message}`);
               return false;
             }
 
       # 第二步：列出可用的artifacts
       - name: List available artifacts
         if: steps.verify_run.outcome == 'success'
+        id: list_artifacts
         uses: actions/github-script@v6
         with:
           script: |
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner: 'pathpass2',
+              repo: 'linux',
               run_id: ${{ github.event.inputs.source_run_id }}
             });
+            
             if (artifacts.data.artifacts.length === 0) {
-              core.setFailed('No artifacts found in source workflow run');
+              core.setFailed('❌ No artifacts found in source workflow run');
             }
+            
             console.log("Available artifacts:");
             artifacts.data.artifacts.forEach(artifact => {
               console.log(`- ${artifact.name} (ID: ${artifact.id}, Size: ${artifact.size_in_bytes} bytes)`);
             });
-            core.setOutput('artifact_names', artifacts.data.artifacts.map(a => a.name));
+            
+            // 优先查找包含kernel或build的artifact
+            const preferredArtifact = artifacts.data.artifacts.find(a => 
+              a.name.toLowerCase().includes('kernel') || 
+              a.name.toLowerCase().includes('build')
+            );
+            
+            const artifactName = preferredArtifact ? preferredArtifact.name : artifacts.data.artifacts[0].name;
+            core.setOutput('artifact_name', artifactName);
+            return artifactName;
 
-      # 第三步：下载artifact（假设我们使用第一个找到的artifact）
+      # 第三步：下载artifact
       - name: Download artifact
         if: steps.verify_run.outcome == 'success'
         id: download_artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ fromJSON(steps.list_artifacts.outputs.artifact_names)[0] || 'kernel-build' }}
+          name: ${{ steps.list_artifacts.outputs.artifact_name }}
           path: kernel_temp
 
       # 第四步：验证下载的文件
       - name: Verify downloaded files
         if: steps.download_artifact.outcome == 'success'
         run: |
-          if [ ! -d "kernel_temp" ]; then
-            echo "::error::Download directory not found"
-            exit 1
-          fi
+          echo "=== Downloaded files structure ==="
+          find kernel_temp -type f -exec ls -lh {} \;
           
-          echo "Downloaded files structure:"
-          ls -lhR kernel_temp
-          
-          # 检查至少有一个关键文件存在
-          if [ ! -f "kernel_temp/vmlinuz-"* ] && [ ! -f "kernel_temp/System.map-"* ]; then
-            echo "::error::No kernel files found in artifact"
+          # 检查常见内核文件
+          if ! compgen -G "kernel_temp/vmlinuz-*" > /dev/null && \
+             ! compgen -G "kernel_temp/System.map-*" > /dev/null && \
+             ! compgen -G "kernel_temp/initrd-*" > /dev/null; then
+            echo "::error::❌ No kernel files (vmlinuz, System.map, initrd) found in artifact"
             exit 1
           fi
 
@@ -87,16 +96,26 @@ jobs:
         if: steps.download_artifact.outcome == 'success'
         run: |
           # 自动检测内核版本
-          KERNEL_VERSION=$(ls kernel_temp/vmlinuz-* | sed 's|.*vmlinuz-||')
+          KERNEL_VERSION=$(ls kernel_temp/vmlinuz-* 2>/dev/null | head -1 | sed 's|.*vmlinuz-||')
+          if [ -z "$KERNEL_VERSION" ]; then
+            KERNEL_VERSION=$(ls kernel_temp/System.map-* 2>/dev/null | head -1 | sed 's|.*System.map-||')
+          fi
+          
+          if [ -z "$KERNEL_VERSION" ]; then
+            echo "::error::❌ Could not determine kernel version from downloaded files"
+            exit 1
+          fi
+          
           echo "Detected kernel version: $KERNEL_VERSION"
           
           # 创建目标目录
           mkdir -p $GITHUB_WORKSPACE/armbian_boot_files
           
-          # 移动文件
-          mv kernel_temp/vmlinuz-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/
-          mv kernel_temp/System.map-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/
-          mv kernel_temp/config-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/ 2>/dev/null || echo "Config file not found, skipping"
+          # 移动所有相关文件
+          mv kernel_temp/vmlinuz-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/ 2>/dev/null || true
+          mv kernel_temp/System.map-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/ 2>/dev/null || true
+          mv kernel_temp/config-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/ 2>/dev/null || true
+          mv kernel_temp/initrd-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/ 2>/dev/null || true
           
           # 设置环境变量
           echo "armbian_file_path=$GITHUB_WORKSPACE/armbian_boot_files" >> $GITHUB_ENV
@@ -106,15 +125,16 @@ jobs:
       - name: Verify final structure
         if: steps.download_artifact.outcome == 'success'
         run: |
-          echo "Final file structure:"
+          echo "=== Final file structure ==="
           ls -lh ${{ env.armbian_file_path }}
           
-          [ -f "${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}" ] || { 
-            echo "::error::Kernel file missing in final location"; 
-            exit 1; 
-          }
+          if [ ! -f "${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}" ] && \
+             [ ! -f "${{ env.armbian_file_path }}/initrd-${{ env.kernel_main_version }}" ]; then
+            echo "::error::❌ No kernel or initrd files found in final location"
+            exit 1
+          fi
           
-          echo "Initrd build environment prepared successfully"
+          echo "✅ Initrd build environment prepared successfully"
 
           
 
