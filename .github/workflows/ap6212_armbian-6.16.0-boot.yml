@@ -201,6 +201,7 @@ jobs:
             ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
             ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
             ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
+            ${{ env.armbian_file_path }}/${{ env.kernel_main_version }}
           retention-days: 7 
       
           
