@@ -6,7 +6,7 @@ on:
       artifact_id:
         description: "Artifact ID from source workflow"
         required: true
-        default: "3718409144"  # 替换成你的实际Artifact ID
+        default: "16826209790"  # 替换成你的实际Artifact ID
 
 permissions:
   contents: read
