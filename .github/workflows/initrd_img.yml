@@ -7,6 +7,10 @@ on:
         description: "指定内核版本（例如：6.16.0）"
         required: true
         default: "6.16.0"
+      artifact_name:
+        description: "第一个 workflow 上传的 Artifact 名称（默认：kernel-build）"
+        required: false
+        default: "kernel-build"
 
 jobs:
   build_initrd:
@@ -20,11 +24,19 @@ jobs:
           echo "kernel_main_version=${{ github.event.inputs.kernel_version }}" >> $GITHUB_ENV
           echo "使用手动指定的内核版本: ${{ github.event.inputs.kernel_version }}"
 
-      - name: Download artifacts (手动模式需提前上传)
+      - name: Download kernel artifacts from first workflow
         uses: actions/download-artifact@v4
         with:
-          name: kernel-build
+          name: ${{ github.event.inputs.artifact_name }}
           path: kernel_artifacts
+
+      - name: Verify downloaded artifacts
+        run: |
+          ls -lh kernel_artifacts/
+          if [ ! -d "kernel_artifacts/${{ env.kernel_main_version }}" ]; then
+            echo "错误：找不到内核模块目录 kernel_artifacts/${{ env.kernel_main_version }}"
+            exit 1
+          fi
 
       - name: Prepare directories
         run: |
@@ -41,7 +53,7 @@ jobs:
         run: |
           sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
           
-          # 准备chroot环境
+          # 准备 chroot 环境
           sudo cp /usr/bin/qemu-aarch64-static /mnt/chroot/usr/bin/
           sudo cp /etc/resolv.conf /mnt/chroot/etc/
           
@@ -81,6 +93,6 @@ jobs:
       - name: Upload initrd artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: initrd-build
+          name: initrd-build-${{ env.kernel_main_version }}
           path: initrd_results/
           retention-days: 3
