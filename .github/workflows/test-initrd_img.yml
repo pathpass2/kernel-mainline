@@ -1,4 +1,4 @@
-name: compile_initrd
+name: test_initrd
 
 on:
   workflow_dispatch:
