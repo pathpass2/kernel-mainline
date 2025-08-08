@@ -184,19 +184,19 @@ jobs:
 
 
 
-      - name: Prepare directories
+      - name: Prepare chroot directories
         run: |
           sudo mkdir -p /mnt/chroot/lib/modules
           sudo mkdir -p /mnt/chroot/usr/src
           sudo cp -a ${{ env.modules_path }}/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
           sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /mnt/chroot/usr/src/
 
-      - name: Install dependencies
+      - name: Install chroot dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y debootstrap qemu-user-static initramfs-tools u-boot-tools
           
-      - name: Setup base system
+      - name: Setup  chroot base system
         run: |
           sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
           
@@ -261,14 +261,14 @@ jobs:
           EOF
 
 
-      - name: Collect results
+      - name: copy initrd.img  uInitrd
         run: |
           sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
           sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
           echo "复制出来的initrd.img、uInitrd"
           ls -lh ${{ env.armbian_file_path }} 
 
-      - name: Clean up
+      - name: Clean chroot
         run: |
           sudo umount /mnt/chroot/dev
           sudo umount /mnt/chroot/proc
