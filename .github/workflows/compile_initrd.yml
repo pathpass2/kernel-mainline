@@ -1,0 +1,61 @@
+name: Build Initrd Only
+
+on:
+  workflow_dispatch:  # 允许手动触发
+env:
+  ARCH: arm64
+  src_path: /home/runner/work/linux/linux
+  modules_path: /home/runner/work/linux/linux/modules/lib/modules
+  
+jobs:
+  build_initrd:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set armbian_path
+        run: |
+          echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
+          echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
+          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
+          
+      - name: Download compiled kernel
+        uses: actions/download-artifact@v3
+        with:
+          name: kernel-build
+          path: ${{ env.armbian_file_path }}  # 解压到 linux/ 目录
+
+
+          
+
+
+      - name: Generate initrd.img
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static
+          sudo apt-get install -y initramfs-tools  u-boot-tools
+          mkdir -p ${{ env.src_path }}/chroot_dir
+          mkdir -p ${{ env.src_path }}/chroot_dir/{proc,sys,host,boot}
+          mkdir -p ${{ env.src_path }}/chroot_dir/usr/bin/
+          mkdir -p ${{ env.src_path }}/chroot_dir/lib/modules
+          mv ${{ env.armbian_file_path }}/${{ env.kernel_main_version }}  ${{ env.src_path }}/ lib/modules
+          sudo cp /usr/bin/qemu-aarch64-static ${{ env.src_path }}/chroot_dir/usr/bin/
+          sudo debootstrap jammy  ${{ env.src_path }}/chroot_dir/ http://archive.ubuntu.com/ubuntu
+          
+          sudo mount -t proc proc ${{ env.src_path }}/chroot_dir/proc
+          sudo mount -t sysfs sys ${{ env.src_path }}/chroot_dir/sys
+          sudo mount -o bind /dev ${{ env.src_path }}/chroot_dir/dev
+          sudo chroot /mnt/chroot /bin/bash <<EOF
+          apt-get update
+          apt-get install -y initramfs-tools u-boot-tools
+          mkinitramfs -c xz -o /boot/initrd.img-${{ env.kernel_main_version }}  ${{ env.kernel_main_version }}
+          mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          EOF
+          
+      - name: Clean up
+        run: |
+          sudo umount ${{ env.src_path }}/chroot_dir/dev
+          sudo umount ${{ env.src_path }}/chroot_dir/proc
+          sudo umount ${{ env.src_path }}/chroot_dir/sys
+          ls  ${{ env.src_path }}/chroot_dir/boot/
+
+
