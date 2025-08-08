@@ -302,7 +302,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.event.inputs.target_tag }}
-          name: "ap6255 Kernel ${{ env.kernel_main_version }}"
+          name: "ap6212 Kernel ${{ env.kernel_main_version }}"
           
           artifacts: |
             ${{ env.src_path }}/boot_files/rk3566-tspi-${{ env.kernel_main_version }}.tar.gz
