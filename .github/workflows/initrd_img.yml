@@ -4,10 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       first_workflow_run_id:
-        description: "16829068004"
+        description: "第一个 workflow 的 Run ID（例如：16829068004）"
+        default: "16829068004"
         required: true
       kernel_version:
-        description: "6.10.0"
+        description: "内核版本（例如：6.16.0）"
+        default: "6.16.0"
         required: true
 
 jobs:
