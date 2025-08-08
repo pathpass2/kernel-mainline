@@ -16,48 +16,105 @@ jobs:
   build_initrd:
     runs-on: ubuntu-22.04
     steps:
-      # 第一步：下载Artifact
+      # 第一步：检查源工作流是否存在
+      - name: Verify source workflow run
+        id: verify_run
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              const run = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: ${{ github.event.inputs.source_run_id }}
+              });
+              console.log(`Found source workflow run: ${run.data.id}`);
+              return true;
+            } catch (error) {
+              core.setFailed(`Source workflow run not found: ${error.message}`);
+              return false;
+            }
+
+      # 第二步：列出可用的artifacts
+      - name: List available artifacts
+        if: steps.verify_run.outcome == 'success'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.inputs.source_run_id }}
+            });
+            if (artifacts.data.artifacts.length === 0) {
+              core.setFailed('No artifacts found in source workflow run');
+            }
+            console.log("Available artifacts:");
+            artifacts.data.artifacts.forEach(artifact => {
+              console.log(`- ${artifact.name} (ID: ${artifact.id}, Size: ${artifact.size_in_bytes} bytes)`);
+            });
+            core.setOutput('artifact_names', artifacts.data.artifacts.map(a => a.name));
+
+      # 第三步：下载artifact（假设我们使用第一个找到的artifact）
       - name: Download artifact
+        if: steps.verify_run.outcome == 'success'
+        id: download_artifact
         uses: actions/download-artifact@v4
         with:
-          name: kernel-build
+          name: ${{ fromJSON(steps.list_artifacts.outputs.artifact_names)[0] || 'kernel-build' }}
           path: kernel_temp
 
-      # 第二步：检查实际文件结构
-      - name: Debug file structure
+      # 第四步：验证下载的文件
+      - name: Verify downloaded files
+        if: steps.download_artifact.outcome == 'success'
         run: |
-          echo "实际下载的文件结构："
-          find kernel_temp -type f | tree -a
-          ls -lh kernel_temp/
+          if [ ! -d "kernel_temp" ]; then
+            echo "::error::Download directory not found"
+            exit 1
+          fi
+          
+          echo "Downloaded files structure:"
+          ls -lhR kernel_temp
+          
+          # 检查至少有一个关键文件存在
+          if [ ! -f "kernel_temp/vmlinuz-"* ] && [ ! -f "kernel_temp/System.map-"* ]; then
+            echo "::error::No kernel files found in artifact"
+            exit 1
+          fi
 
-      # 第三步：修正路径处理
+      # 第五步：重新组织文件结构
       - name: Reorganize files
+        if: steps.download_artifact.outcome == 'success'
         run: |
-          # 创建目标目录结构
+          # 自动检测内核版本
+          KERNEL_VERSION=$(ls kernel_temp/vmlinuz-* | sed 's|.*vmlinuz-||')
+          echo "Detected kernel version: $KERNEL_VERSION"
+          
+          # 创建目标目录
           mkdir -p $GITHUB_WORKSPACE/armbian_boot_files
           
-          # 移动文件到正确位置
-          mv kernel_temp/vmlinuz-6.16.0 $GITHUB_WORKSPACE/armbian_boot_files/
-          mv kernel_temp/System.map-6.16.0 $GITHUB_WORKSPACE/armbian_boot_files/
-          mv kernel_temp/config-6.16.0 $GITHUB_WORKSPACE/armbian_boot_files/
+          # 移动文件
+          mv kernel_temp/vmlinuz-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/
+          mv kernel_temp/System.map-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/
+          mv kernel_temp/config-$KERNEL_VERSION $GITHUB_WORKSPACE/armbian_boot_files/ 2>/dev/null || echo "Config file not found, skipping"
           
           # 设置环境变量
           echo "armbian_file_path=$GITHUB_WORKSPACE/armbian_boot_files" >> $GITHUB_ENV
-          echo "kernel_main_version=6.16.0" >> $GITHUB_ENV
+          echo "kernel_main_version=$KERNEL_VERSION" >> $GITHUB_ENV
 
-      # 第四步：最终验证
+      # 第六步：最终验证
       - name: Verify final structure
+        if: steps.download_artifact.outcome == 'success'
         run: |
-          echo "最终文件结构："
+          echo "Final file structure:"
           ls -lh ${{ env.armbian_file_path }}
-          [ -f "${{ env.armbian_file_path }}/vmlinuz-6.16.0" ] || { echo "::error::内核文件位置不正确"; exit 1; }
-
-      # 第五步：设置环境路径
-      - name: Setup paths
-        run: |
-          echo "armbian_file_path=$GITHUB_WORKSPACE/armbian_boot_files" >> $GITHUB_ENV
-          mkdir -p ${{ env.armbian_file_path }}
-          cp -r kernel_temp/armbian_boot_files/* ${{ env.armbian_file_path }}/
+          
+          [ -f "${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}" ] || { 
+            echo "::error::Kernel file missing in final location"; 
+            exit 1; 
+          }
+          
+          echo "Initrd build environment prepared successfully"
 
           
 
