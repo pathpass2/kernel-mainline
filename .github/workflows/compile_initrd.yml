@@ -22,6 +22,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: kernel-build
+          workflow: ap6212_armbian-6.16.0-boot.yml
+          run-id: ${{ github.event.workflow_run.id }}
           path: ${{ env.armbian_file_path }}  # 解压到 linux/ 目录
 
 
