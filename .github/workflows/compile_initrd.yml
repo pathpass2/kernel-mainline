@@ -6,6 +6,11 @@ on:
       source_run_id:
         description: "Source workflow run ID (find in Actions tab)"
         required: true
+        default: "16826209790"
+        
+permissions:  # 必须添加！
+  actions: read
+  contents: read
 
 env:
   ARCH: arm64
