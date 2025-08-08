@@ -20,7 +20,7 @@ env:
   src_path: /home/runner/work/linux/linux
   modules_path: /home/runner/work/linux/linux/modules/lib/modules
   artifacts_path: ${{ github.workspace }}/artifacts
-  kernel_main_version: ${{ inputs.kernel_version }}
+  kernel_main_version: "6.16.0"
   kernel_files: "config vmlinuz System.map"
 
 permissions:
