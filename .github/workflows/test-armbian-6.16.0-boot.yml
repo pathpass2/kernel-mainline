@@ -1,4 +1,4 @@
-name: Build ap6212_armbian-6.16.0-boot
+name: test ap6212_armbian-6.16.0-boot
 
 on:
   workflow_dispatch:
