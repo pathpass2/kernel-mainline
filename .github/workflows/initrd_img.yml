@@ -1,14 +1,11 @@
 name: compile_initrd
 
 on:
-  workflow_run:
-    workflows: ["Build ap6212_armbian-6.16.0-boot"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       kernel_version:
-        description: "手动指定内核版本（仅用于调试）"
-        required: false
+        description: "指定内核版本（例如：6.16.0）"
+        required: true
         default: "6.16.0"
 
 jobs:
@@ -18,15 +15,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get kernel version from previous workflow
-        id: get_version
+      - name: Set kernel version
         run: |
-          kernel_version=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs | \
-          jq -r '.jobs[0].steps[] | select(.name == "Get Kernel Version") | .outputs.kernel_main_version')
-          echo "kernel_main_version=${kernel_version}" >> $GITHUB_ENV
-          echo "获取到的内核版本: ${kernel_version}"
+          echo "kernel_main_version=${{ github.event.inputs.kernel_version }}" >> $GITHUB_ENV
+          echo "使用手动指定的内核版本: ${{ github.event.inputs.kernel_version }}"
 
-      - name: Download artifacts
+      - name: Download artifacts (手动模式需提前上传)
         uses: actions/download-artifact@v4
         with:
           name: kernel-build
