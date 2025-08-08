@@ -245,7 +245,7 @@ jobs:
           # 生成 initrd
           echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
           [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" /etc/initramfs-tools/update-initramfs.conf
-          [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^COMPRESS=.*|COMPRESS=gzip|g"   /etc/initramfs-tools/initramfs.conf
+          [[ -f "/etc/initramfs-tools/initramfs.conf" ]] && sed -i "s|^COMPRESS=.*|COMPRESS=gzip|g"   /etc/initramfs-tools/initramfs.conf
           update-initramfs -c -k  ${{ env.kernel_main_version }}
           
           # 生成 uInitrd
