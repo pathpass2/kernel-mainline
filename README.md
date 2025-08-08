@@ -9,7 +9,7 @@ config是从armbian获取的，在armbian-config的基础上开启了zram，方�
 可fork后在action直接编译，也可拉取到本地编译
 
 dts改动：
-参照armbian更改了mmc1(sd卡)的参数，在emmc上有系统的情况下(比如emmc里装了安卓或者fedora)：可以从sd卡启动armbian-6.16.0，拔掉sd卡则从emmc启动系统
+参照armbian更改了mmc1(sd卡)的参数，可以从sd卡启动armbian-6.16.0，拔掉sd卡则从emmc启动系统
 将sdhci(emmc)设为了mmcblk0， 使用boot.img的情况下  dts里面  rootfs引导设置为了mmcblk0p3，需要修改的话自行修改。波特率修改为了115200。
 <img width="1497" height="858" alt="image" src="https://github.com/user-attachments/assets/1c937dcc-557b-4758-a3c3-8cd348dc8e42" />
 
