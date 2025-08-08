@@ -248,7 +248,7 @@ jobs:
           
           # 生成 uInitrd
           echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
-          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd \
+          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
             -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}; then
             echo "mkimage 执行失败，尝试重新安装 u-boot-tools..."
             apt-get install -y --reinstall u-boot-tools
