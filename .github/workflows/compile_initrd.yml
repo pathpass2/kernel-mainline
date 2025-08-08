@@ -1,31 +1,47 @@
 name: Build Initrd Only
 
 on:
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Source workflow run ID (find in Actions tab)"
+        required: true
+
 env:
   ARCH: arm64
   src_path: /home/runner/work/linux/linux
-  modules_path: /home/runner/work/linux/linux/modules/lib/modules
   
 jobs:
   build_initrd:
     runs-on: ubuntu-22.04
     steps:
-      - name: Set armbian_path
+      - name: Set paths
         run: |
           echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
           echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
           echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
-          
-      - name: Download compiled kernel
+      
+      - name: Create target directory
+        run: mkdir -p ${{ env.armbian_file_path }}
+        
+      - name: Download kernel artifacts
         uses: actions/download-artifact@v4
         with:
           name: kernel-build
           workflow: ap6212_armbian-6.16.0-boot.yml
-          run-id: ${{ github.event.workflow_run.id }}
-          path: ${{ env.armbian_file_path }}  # 解压到 linux/ 目录
+          run-id: ${{ inputs.source_run_id }}
+          path: kernel_temp  # 临时目录
 
+      - name: Verify downloaded files
+        run: |
+          ls -lh kernel_temp/
+          [ -f kernel_temp/armbian_boot_files/vmlinuz-* ] || exit 1
+
+      - name: Move files to final location
+        run: |
+          cp -r kernel_temp/armbian_boot_files/* ${{ env.armbian_file_path }}/
+          ls -lh ${{ env.armbian_file_path }}
 
           
 
