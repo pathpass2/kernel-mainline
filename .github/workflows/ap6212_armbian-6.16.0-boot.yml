@@ -187,7 +187,7 @@ jobs:
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
-
+          cp -a ${{ env.modules_path }}/${{ env.kernel_main_version }}    ${{ env.armbian_file_path }}/
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
           ls  -lh
