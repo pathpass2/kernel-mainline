@@ -34,8 +34,9 @@ jobs:
           sudo apt-get install -y debootstrap qemu-user-static
           sudo apt-get install -y initramfs-tools  u-boot-tools
           mkdir -p ${{ env.src_path }}/chroot_dir
-          mkdir -p ${{ env.src_path }}/chroot_dir/{proc,sys,host}
-          mv ${{ env.armbian_file_path }}/${{ env.kernel_main_version }}  ${{ env.src_path }}/ lib/modules
+          mkdir -p ${{ env.src_path }}/lib/modules
+          mkdir -p ${{ env.src_path }}/chroot_dir/usr/bin/
+          mv ${{ env.armbian_file_path }}/${{ env.kernel_main_version }}  ${{ env.src_path }}/lib/modules
           sudo cp /usr/bin/qemu-aarch64-static ${{ env.src_path }}/chroot_dir/usr/bin/
           sudo debootstrap jammy  ${{ env.src_path }}/chroot_dir/ http://archive.ubuntu.com/ubuntu
           
