@@ -1,4 +1,4 @@
-name: Build ap6212_armbian-6.16.0-boot
+name: Build ap6212-6.16.0-rk3566-tspi.img
 
 on:
   workflow_dispatch:
@@ -13,15 +13,13 @@ env:
   ARCH: arm64
   src_path: /home/runner/work/linux/linux
   modules_path: /home/runner/work/linux/linux/modules/lib/modules
-  initramfs_conf: /etc/initramfs-tools/update-initramfs.conf
-  corss_compile: aarch64-none-linux-gnu-
   
 
   
 
 jobs:
   build:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout source tag
         uses: actions/checkout@v4
@@ -40,7 +38,6 @@ jobs:
           find . -type f -name "mkbootimg" -exec chmod +x {} \;
           chmod +x ./scripts/*
           
-  
       
 
       - name: Install Latest LZ4
@@ -73,42 +70,36 @@ jobs:
 
       - name: Setup ARM Toolchain
         run: |
-          wget  https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
-          tar xf  arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
-          echo  "$(pwd)/arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
-          
+          wget https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          tar xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          echo "$(pwd)/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
 
-      - name: Disable incorrect binfmt_misc
-        run: |
-          echo "Current binfmt_misc entries:"
-          ls -l /proc/sys/fs/binfmt_misc/
-          echo "Disabling x86_64 interpreter if present..."
-          echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-x86_64 2>/dev/null || true
-          echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-x86_64-static 2>/dev/null || true  
-       
       - name: Get Kernel Version
         run: |
           # 获取内核版本号
           echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
-          which aarch64-none-linux-gnu-gcc
-          aarch64-none-linux-gnu-gcc --version
+
 
       - name: Set armbian_path
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
           echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
           echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
-
-          
           
       - name: Build Kernel
         run: |
           mkdir -p  ${{ env.armbian_path }}/
           mkdir -p  ${{ env.armbian_file_path }}
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}  tspi_defconfig
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs Image modules 
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}}   modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
-          echo "${{ env.kernel_main_version }}"       
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
+          echo "${{ env.kernel_main_version }}"
+          echo  "查看编译好的boot.img"
+          ls -lh boot.img
+          echo "重命名boot.img为rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img"
+          mv boot.img  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
+          ls  -lh      rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img          
           echo "当前所在编译路径：$(pwd)"
           # 打包模块
           cd  ${{ env.modules_path }}
@@ -120,11 +111,10 @@ jobs:
           echo "查看模块详情"
           ls -lh ${{ env.kernel_main_version }}
           echo "打包modules"
-          tar -zcf modules-${{ env.kernel_main_version }}.tar.gz   ${{ env.kernel_main_version }}
+          tar -zcf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
           echo "查看打包的modules.tar.gz"
           ls  -lh
-          mv  modules-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
-     
+           
       
       - name: Build Kernel-headers
         run: |
@@ -139,15 +129,37 @@ jobs:
           cp -a arch/arm64/Makefile      ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/Makefile
           cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cd ${{ env.src_path }}
+          tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
+          echo "当前所在路径：$(pwd)"
+          echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
+          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
+
+      #打包boot.img、modules、headers         
+      - name: Compression_boot_files
+        run: |
+          mkdir ${{ env.src_path }}/boot_files
+          cd ${{ env.src_path }}/boot_files
+          mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz  .
+          mv ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz   .
+          mv ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img  .
+          tar -zcvf rk3566-tspi-${{ env.kernel_main_version }}.tar.gz   *
+
+      #制作armbian_boot所需的modules、headers、boot-files、dtb
+      - name: create  armbian_modules
+        run: |
+          cd ${{ env.modules_path }}
+          tar -zcf modules-${{ env.kernel_main_version }}.tar.gz   ${{ env.kernel_main_version }}
+          mv  modules-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+      
+      - name: create armbian_headers
+        run: |
           cd ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           tar -zcf  headers-${{ env.kernel_main_version }}.tar.gz   *
-          echo "当前所在路径：$(pwd)"
-          echo "查看打包的headers-${{ env.kernel_main_version }}.tar.gz"
-          ls  -lh 
           mv   headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
-     
 
-      - name: edit dtb
+          
+      - name: edit armbian_dtb
         run: | 
           mkdir -p ${{ env.dtb_path }}/dtb/rockchip
           echo "查看未修改前的dtb"
@@ -170,43 +182,25 @@ jobs:
           mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
 
 
-          
       - name:  copy armbian_boot_file 
         run: |
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}
-          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}
-          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
 
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
           ls  -lh
-          tar -zcf boot-${{ env.kernel_main_version }}.tar.gz   *
-          echo "查看打包后所有文件"
-          ls -lh
 
-      - name: Build  ap6212_armbian-6.16.0-boot
-        run: |
-          cd ${{ env.armbian_path }}/
-          mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
-          echo "查看armbian_boot下所有需要打包的文件"
-          ls -lh
-          tar -zcf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
-          
-      - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
-        uses: ncipollo/release-action@v1
+
+      - name: Save compiled kernel
+        uses: actions/upload-artifact@v3
         with:
-          tag: ${{ github.event.inputs.target_tag }}
-          name: "Kernel ${{ env.kernel_main_version }}"
+          name: kernel-build
+          path: |
+            ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+            ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+            ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
+          retention-days: 7 
+      
           
-          artifacts: |
-            ${{ env.armbian_path }}/armbian_boot-${{ env.kernel_main_version }}.tar.gz
-          body: |
-            tag：  ${{ github.event.inputs.target_tag }}
-            Kernel version: ${{ env.kernel_main_version }}
-            rk3566-lckfb-tspi-ap6212
-            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
-            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径 压缩包里没有initrd.img、uImage，需要自己在armbian上制作
-          draft: false
-          prerelease: false
-          allowUpdates: true
-          replaceArtifacts: false
