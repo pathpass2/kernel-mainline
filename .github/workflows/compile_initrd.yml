@@ -3,48 +3,50 @@ name: Build Initrd Only
 on:
   workflow_dispatch:
     inputs:
-      source_run_id:
-        description: "Source workflow run ID (find in Actions tab)"
+      artifact_id:
+        description: "Artifact ID from source workflow"
         required: true
-        default: "16826209790"
-        
-permissions:  # 必须添加！
-  actions: read
-  contents: read
+        default: "3718409144"  # 替换成你的实际Artifact ID
 
-env:
-  ARCH: arm64
-  src_path: /home/runner/work/linux/linux
-  
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build_initrd:
     runs-on: ubuntu-22.04
     steps:
-      - name: Set paths
+      # 第一步：通过API下载Artifact
+      - name: Download artifact via API
         run: |
-          echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
-          echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
-          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
-          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
-      
-      - name: Create target directory
-        run: mkdir -p ${{ env.armbian_file_path }}
-        
-      - name: Download kernel artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: kernel-build
-          workflow: ap6212_armbian-6.16.0-boot.yml
-          run-id: ${{ inputs.source_run_id }}
-          path: kernel_temp  # 临时目录
+          mkdir -p kernel_temp
+          curl -sL \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ inputs.artifact_id }}/zip" \
+            -o kernel_temp/artifact.zip
+          
+          unzip kernel_temp/artifact.zip -d kernel_temp/
+          rm kernel_temp/artifact.zip
 
+      # 第二步：验证文件结构
       - name: Verify downloaded files
         run: |
-          ls -lh kernel_temp/
-          [ -f kernel_temp/armbian_boot_files/vmlinuz-* ] || exit 1
+          echo "文件列表："
+          find kernel_temp -type f
+          [ -f "kernel_temp/armbian_boot_files/vmlinuz-6.16.0" ] || { echo "未找到内核文件"; exit 1; }
 
-      - name: Move files to final location
+      # 第三步：设置环境变量（保持与你原始配置一致）
+      - name: Set environment paths
         run: |
+          echo "src_path=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "armbian_file_path=$GITHUB_WORKSPACE/armbian_boot_files" >> $GITHUB_ENV
+          echo "kernel_main_version=6.16.0" >> $GITHUB_ENV
+
+      # 第四步：移动文件到目标位置
+      - name: Organize files
+        run: |
+          mkdir -p ${{ env.armbian_file_path }}
           cp -r kernel_temp/armbian_boot_files/* ${{ env.armbian_file_path }}/
           ls -lh ${{ env.armbian_file_path }}
 
