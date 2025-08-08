@@ -6,7 +6,7 @@ on:
       workflow_name:
         description: "ap6212_armbian-6.16.0-boot.yml"
         required: true
-        default: "kernel-build-workflow"
+        default: "ap6212_armbian-6.16.0-boot.yml"
       run_id:
         description: "源工作流的运行ID"
         required: true
