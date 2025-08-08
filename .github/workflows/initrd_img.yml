@@ -3,14 +3,12 @@ name: compile_initrd
 on:
   workflow_dispatch:
     inputs:
-      kernel_version:
-        description: "指定内核版本（例如：6.16.0）"
+      first_workflow_run_id:
+        description: "3719402836"
         required: true
-        default: "6.16.0"
-      artifact_name:
-        description: "第一个 workflow 上传的 Artifact 名称（默认：kernel-build）"
-        required: false
-        default: "kernel-build"
+      kernel_version:
+        description: "6.10.0"
+        required: true
 
 jobs:
   build_initrd:
@@ -22,27 +20,44 @@ jobs:
       - name: Set kernel version
         run: |
           echo "kernel_main_version=${{ github.event.inputs.kernel_version }}" >> $GITHUB_ENV
-          echo "使用手动指定的内核版本: ${{ github.event.inputs.kernel_version }}"
+          echo "使用指定的内核版本: ${{ github.event.inputs.kernel_version }}"
 
-      - name: Download kernel artifacts from first workflow
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ github.event.inputs.artifact_name }}
-          path: kernel_artifacts
-
-      - name: Verify downloaded artifacts
+      - name: Download artifact from first workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ls -lh kernel_artifacts/
-          if [ ! -d "kernel_artifacts/${{ env.kernel_main_version }}" ]; then
-            echo "错误：找不到内核模块目录 kernel_artifacts/${{ env.kernel_main_version }}"
+          # 通过 GitHub API 获取 Artifact 下载地址
+          ARTIFACT_URL=$(curl -s \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.inputs.first_workflow_run_id }}/artifacts" \
+            | jq -r '.artifacts[] | select(.name == "kernel-build") | .archive_download_url')
+
+          if [ -z "$ARTIFACT_URL" ]; then
+            echo "错误：找不到 kernel-build Artifact"
             exit 1
           fi
 
+          # 下载并解压 Artifact
+          curl -L -o kernel-build.zip \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "$ARTIFACT_URL"
+          unzip kernel-build.zip -d kernel_artifacts
+          ls -lh kernel_artifacts/
+
+      - name: Verify kernel modules
+        run: |
+          if [ ! -d "kernel_artifacts/${{ env.kernel_main_version }}" ]; then
+            echo "错误：内核模块目录不存在: kernel_artifacts/${{ env.kernel_main_version }}"
+            exit 1
+          fi
+      # 后续步骤保持不变（准备目录、构建 initrd 等）
       - name: Prepare directories
         run: |
-          sudo mkdir -p /mnt/chroot
           sudo mkdir -p /mnt/chroot/lib/modules
           sudo cp -a kernel_artifacts/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
+          
+
 
       - name: Install dependencies
         run: |
