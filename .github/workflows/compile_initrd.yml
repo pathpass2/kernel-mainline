@@ -19,7 +19,7 @@ jobs:
           echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
           
       - name: Download compiled kernel
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: kernel-build
           path: ${{ env.armbian_file_path }}  # 解压到 linux/ 目录
