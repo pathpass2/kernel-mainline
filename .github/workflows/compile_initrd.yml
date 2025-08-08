@@ -3,10 +3,10 @@ name: Build Initrd Only
 on:
   workflow_dispatch:
     inputs:
-      artifact_id:
-        description: "Artifact ID from source workflow"
+      source_run_id:
+        description: "Source workflow run ID"
         required: true
-        default: "16826209790"  # 替换成你的实际Artifact ID
+        default: "16826209790"
 
 permissions:
   contents: read
@@ -16,39 +16,54 @@ jobs:
   build_initrd:
     runs-on: ubuntu-22.04
     steps:
-      # 第一步：通过API下载Artifact
-      - name: Download artifact via API
+      # 第一步：获取Artifact下载URL
+      - name: Get artifact download URL
+        id: get-artifact
+        run: |
+          response=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ inputs.source_run_id }}/artifacts")
+          
+          download_url=$(echo "$response" | jq -r '.artifacts[] | select(.name == "kernel-build") | .archive_download_url')
+          echo "url=$download_url" >> $GITHUB_OUTPUT
+          echo "Found download URL: $download_url"
+
+      # 第二步：下载并验证ZIP文件
+      - name: Download and extract artifact
         run: |
           mkdir -p kernel_temp
           curl -sL \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ inputs.artifact_id }}/zip" \
+            "${{ steps.get-artifact.outputs.url }}" \
             -o kernel_temp/artifact.zip
           
-          unzip kernel_temp/artifact.zip -d kernel_temp/
+          # 验证ZIP文件完整性
+          if ! unzip -t kernel_temp/artifact.zip; then
+            echo "::error::Downloaded ZIP file is corrupted"
+            exit 1
+          fi
+          
+          unzip -o kernel_temp/artifact.zip -d kernel_temp/
           rm kernel_temp/artifact.zip
 
-      # 第二步：验证文件结构
-      - name: Verify downloaded files
+      # 第三步：验证文件结构
+      - name: Verify files
         run: |
-          echo "文件列表："
+          echo "Downloaded files:"
           find kernel_temp -type f
-          [ -f "kernel_temp/armbian_boot_files/vmlinuz-6.16.0" ] || { echo "未找到内核文件"; exit 1; }
+          
+          if [ ! -f "kernel_temp/armbian_boot_files/vmlinuz-6.16.0" ]; then
+            echo "::error::Kernel file not found in expected location"
+            exit 1
+          fi
 
-      # 第三步：设置环境变量（保持与你原始配置一致）
-      - name: Set environment paths
+      # 第四步：设置环境路径
+      - name: Setup paths
         run: |
-          echo "src_path=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "armbian_file_path=$GITHUB_WORKSPACE/armbian_boot_files" >> $GITHUB_ENV
-          echo "kernel_main_version=6.16.0" >> $GITHUB_ENV
-
-      # 第四步：移动文件到目标位置
-      - name: Organize files
-        run: |
           mkdir -p ${{ env.armbian_file_path }}
           cp -r kernel_temp/armbian_boot_files/* ${{ env.armbian_file_path }}/
-          ls -lh ${{ env.armbian_file_path }}
 
           
 
