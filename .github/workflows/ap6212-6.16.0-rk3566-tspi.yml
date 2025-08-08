@@ -198,7 +198,7 @@ jobs:
           
       - name: Setup  chroot base system
         run: |
-          sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
+          sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://apt.armbian.com/
           
           # 准备 chroot 环境
           sudo cp /usr/bin/qemu-aarch64-static /mnt/chroot/usr/bin/
