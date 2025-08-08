@@ -1,69 +1,65 @@
 name: compile_initrd
 
 on:
-  workflow_dispatch:
-    inputs:
-      workflow_name:
-        description: "ap6212_armbian-6.16.0-boot.yml"
-        required: true
-        default: "ap6212_armbian-6.16.0-boot.yml"
-      run_id:
-        description: "源工作流的运行ID"
-        required: true
-        default: "16826209790"
-      kernel_version:
-        description: "完整内核版本号(如6.1.0)"
-        required: true
-        default: "6.16.0"
+  workflow_run:
+    workflows: ["Build ap6212_armbian-6.16.0-boot"]  # 前一个workflow的名称
+    types: [completed]
 
 env:
+  # 继承前一个workflow的环境变量
+  ARCH: arm64
   src_path: /home/runner/work/linux/linux
   modules_path: /home/runner/work/linux/linux/modules/lib/modules
-  artifacts_path: ${{ github.workspace }}/artifacts
-  kernel_main_version: "6.16.0"
-  kernel_files: "config vmlinuz System.map"
-
-permissions:
-  actions: read
-  contents: write
+  armbian_path: /home/runner/work/linux/linux/armbian_boot
+  dtb_path: /home/runner/work/linux/linux/dtbs
+  armbian_file_path: /home/runner/work/linux/linux/armbian_boot_files
 
 jobs:
-  download-and-build:
-    runs-on: ubuntu-latest
+  download_artifacts:
+    runs-on: ubuntu-22.04
     steps:
-      - name: 设置环境变量
-        run: |
-          echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
-          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
-          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
-          mkdir -p ${{ env.armbian_path }}
-          mkdir -p ${{ env.dtb_path }}
-          mkdir -p ${{ env.armbian_file_path }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: 下载内核文件
+      - name: Download artifacts from previous workflow
         uses: actions/download-artifact@v4
         with:
-          name: kernel-artifacts
-          path: ${{ env.artifacts_path }}
-          run_id: ${{ inputs.run_id }}
+          name: kernel-build
+          path: ${{ env.armbian_file_path }}
 
-      - name: 验证下载的文件
+      - name: List downloaded files
         run: |
-          echo "已下载的内核文件:"
-          ls -lh ${{ env.artifacts_path }}
-          
-          for file in ${{ env.kernel_files }}; do
-            if [ ! -f "${{ env.artifacts_path }}/$file-${{ env.kernel_main_version }}" ]; then
-              echo "::error::缺少文件: $file-${{ env.kernel_main_version }}"
-              exit 1
-            fi
-          done
+          echo "下载的文件列表："
+          ls -lh ${{ env.armbian_file_path }}
+          echo "模块目录内容："
+          ls -lh ${{ env.armbian_file_path }}/${{ env.kernel_main_version }}
 
-          # 复制内核文件到armbian目录
-          cp ${{ env.artifacts_path }}/config-${{ env.kernel_main_version }} ${{ env.armbian_file_path }}/
-          cp ${{ env.artifacts_path }}/System.map-${{ env.kernel_main_version }} ${{ env.armbian_file_path }}/
-          cp ${{ env.artifacts_path }}/vmlinuz-${{ env.kernel_main_version }} ${{ env.armbian_file_path }}/
+      - name: Setup environment
+        run: |
+          # 从前一个workflow的运行日志中提取内核版本
+          echo "kernel_main_version=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs | jq -r '.jobs[0].steps[] | select(.name == "Get Kernel Version") | .outputs.kernel_main_version')" >> $GITHUB_ENV
+          echo "内核版本: ${{ env.kernel_main_version }}"
 
+      - name: Verify files
+        run: |
+          echo "验证下载的文件："
+          [ -f "${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}" ] && echo "vmlinuz 存在" || echo "vmlinuz 不存在"
+          [ -f "${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}" ] && echo "System.map 存在" || echo "System.map 不存在"
+          [ -f "${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}" ] && echo "config 存在" || echo "config 不存在"
+          [ -d "${{ env.armbian_file_path }}/${{ env.kernel_main_version }}" ] && echo "模块目录存在" || echo "模块目录不存在"
+
+      - name: Upload to release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+            ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+            ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
+            ${{ env.armbian_path }}/*.tar.gz
+          tag_name: ${{ env.kernel_main_version }}
+          draft: false
+          prerelease: false
           
 
 
