@@ -53,13 +53,11 @@ jobs:
             echo "错误：内核模块目录不存在: kernel_artifacts/${{ env.kernel_main_version }}"
             exit 1
           fi
-      # 后续步骤保持不变（准备目录、构建 initrd 等）
+
       - name: Prepare directories
         run: |
           sudo mkdir -p /mnt/chroot/lib/modules
           sudo cp -a kernel_artifacts/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
-          
-
 
       - name: Install dependencies
         run: |
@@ -79,18 +77,55 @@ jobs:
           sudo mount -t sysfs sys /mnt/chroot/sys
           sudo mount -o bind /dev /mnt/chroot/dev
 
+      - name: Pre-configure chroot environment
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'PREEOF'
+          # 配置完整的软件源
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy main universe multiverse" > /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-security main universe multiverse" >> /etc/apt/sources.list
+          
+          # 更新软件包列表
+          apt-get update -y
+          PREEOF
+
       - name: Build initrd in chroot
         run: |
-          sudo chroot /mnt/chroot /bin/bash <<EOF
-          echo "deb http://ports.ubuntu.com/ jammy main" > /etc/apt/sources.list
-          apt-get update
-          apt-get install -y apt-utils dialog locales initramfs-tools u-boot-tools
-          locale-gen en_US.UTF-8
+          sudo chroot /mnt/chroot /bin/bash <<'EOF'
+          # 安装必要软件包（使用完整包名和明确的安装选项）
+          apt-get install -y --no-install-recommends \
+            locales \
+            dialog \
+            apt-utils \
+            initramfs-tools \
+            u-boot-tools \
+            busybox-static \
+            kmod \
+            linux-base
+
+          # 配置 locale
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          /usr/sbin/locale-gen en_US.UTF-8
           
+          # 创建 boot 目录
           mkdir -p /boot
-          mkinitramfs -o /boot/initrd.img-${{ env.kernel_main_version }} ${{ env.kernel_main_version}}
-          mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd \
-            -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          
+          # 生成 initrd
+          echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
+          /usr/sbin/mkinitramfs -v -o /boot/initrd.img-${{ env.kernel_main_version }} ${{ env.kernel_main_version }}
+          
+          # 生成 uInitrd
+          echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
+          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd \
+            -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}; then
+            echo "mkimage 执行失败，尝试重新安装 u-boot-tools..."
+            apt-get install -y --reinstall u-boot-tools
+            /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd \
+              -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          fi
+          
+          # 验证生成的文件
+          ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
           EOF
 
       - name: Collect results
