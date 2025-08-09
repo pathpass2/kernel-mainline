@@ -125,11 +125,7 @@ jobs:
           cp -a arch/arm64/Makefile      ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/Makefile
           cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
-          cd ${{ env.src_path }}
-          tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
-          echo "当前所在路径：$(pwd)"
-          echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
-          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
+
 
       #打包boot.img、modules、headers         
       - name: Compression_boot_files
@@ -238,6 +234,13 @@ jobs:
           echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
           /usr/sbin/locale-gen en_US.UTF-8
           
+          # 映射headers软连接
+          sudo rm -rf /lib/modules/${{ env.kernel_main_version }}/build
+          sudo ln -sf /usr/src/linux-headers-${{ env.kernel_main_version }}  /lib/modules/${{ env.kernel_main_version }}/build
+          cd /usr/src/linux-headers-${{ env.kernel_main_version }} 
+          tar -zcf headers-${{ env.kernel_main_version }}.tar.gz  *
+          
+          
           # 创建 boot 目录
           mkdir -p /boot
           
@@ -266,6 +269,7 @@ jobs:
         run: |
           sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
           sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
+          sudo cp /mnt/chroot/usr/src/linux-headers-${{ env.kernel_main_version }}/headers-${{ env.kernel_main_version }}.tar.gz    ${{ env.armbian_file_path }}/
           echo "复制出来的initrd.img、uInitrd"
           ls -lh ${{ env.armbian_file_path }} 
 
