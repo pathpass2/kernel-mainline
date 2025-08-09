@@ -221,20 +221,8 @@ jobs:
           apt-get update -y
           PREEOF
 
-      - name: Prepare kernel files in chroot
-        run: |
-          # 清理chroot的/boot目录
-          sudo rm -rf /mnt/chroot/boot/*
+
     
-          # 复制内核文件到chroot的/boot
-          sudo cp ${{ env.src_path }}/arch/arm64/boot/Image /mnt/chroot/boot/
-          sudo cp ${{ env.src_path }}/System.map /mnt/chroot/boot/
-          sudo cp ${{ env.src_path }}/.config /mnt/chroot/boot/
-          sudo  mkdir -p /mnt/chroot/boot/dtb/rockchip
-          sudo cp ${{ env.dtb_path }}/dtb/rockchip/* /mnt/chroot/boot/dtb/rockchip
-    
-          # 验证文件已复制
-          ls -lh /mnt/chroot/boot/
 
       - name: Build initrd in chroot
         run: |
