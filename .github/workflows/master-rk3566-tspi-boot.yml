@@ -7,7 +7,6 @@ on:
 
 env:
   ARCH: arm64
-  #linux替换自己的仓库名称
   src_path: /home/runner/work/linux/linux
   modules_path: /home/runner/work/linux/linux/modules/lib/modules
   
@@ -18,10 +17,12 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Repository
+      - name: Checkout source tag
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          ref: ${{ github.event.inputs.target_tag }}
+          submodules: true
+          fetch-depth: 0
           # 关键：保留文件权限
           persist-credentials: false
 
@@ -74,23 +75,27 @@ jobs:
           # 获取内核版本号
           echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
 
+
       - name: Set armbian_path
         run: |
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
-          echo "armbian_init_path=${{ env.src_path }}/armbian_initrd" >> $GITHUB_ENV
           echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
-
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
+          
       - name: Build Kernel
         run: |
+          mkdir -p  ${{ env.armbian_path }}/
+          mkdir -p  ${{ env.armbian_file_path }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
           echo  "查看编译好的boot.img"
           ls -lh boot.img
           echo "重命名boot.img为rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img"
-          mv   boot.img  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
-          ls  -lh       rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img          
+          mv boot.img  rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img
+          ls  -lh      rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img          
           echo "当前所在编译路径：$(pwd)"
           # 打包模块
           cd  ${{ env.modules_path }}
@@ -100,12 +105,12 @@ jobs:
           ls
           echo "${{ env.kernel_main_version }}"
           echo "查看模块详情"
-          ls -l ${{ env.kernel_main_version }}
+          ls -lh ${{ env.kernel_main_version }}
           echo "打包modules"
           tar -zcf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
           echo "查看打包的modules.tar.gz"
-          ls  -l
-     
+          ls  -lh
+           
       
       - name: Build Kernel-headers
         run: |
@@ -122,10 +127,11 @@ jobs:
           cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
           cd ${{ env.src_path }}
           tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
-          echo "当前所在路径：$(
+          echo "当前所在路径：$(pwd)"
           echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
-          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz          
+          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
 
+      #打包boot.img、modules、headers         
       - name: Compression_boot_files
         run: |
           mkdir ${{ env.src_path }}/boot_files
@@ -133,22 +139,180 @@ jobs:
           mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz  .
           mv ${{ env.modules_path }}/${{ env.kernel_main_version }}-modules.tar.gz   .
           mv ${{ env.src_path }}/rk3566-lckfb-tspi-boot-${{ env.kernel_main_version }}.img  .
-          tar -zcvf rk3566-tspi-${{ env.kernel_main_version }}.tar.gz   * 
-          
+          tar -zcvf rk3566-tspi-${{ env.kernel_main_version }}.tar.gz   *
 
+      #制作armbian_boot所需的modules、headers、boot-files、dtb
+      - name: create  armbian_modules
+        run: |
+          cd ${{ env.modules_path }}
+          tar -zcf modules-${{ env.kernel_main_version }}.tar.gz   ${{ env.kernel_main_version }}
+          mv  modules-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+      
+      - name: create armbian_headers
+        run: |
+          cd ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          tar -zcf  headers-${{ env.kernel_main_version }}.tar.gz   *
+          mv   headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+
+          
+      - name: edit armbian_dtb
+        run: | 
+          mkdir -p ${{ env.dtb_path }}/dtb/rockchip
+          echo "查看未修改前的dtb"
+          ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/rk3566-lckfb-tspi.dtb
+          echo "复制dtb到armbian_boot路径"
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/rockchip/*.dtb   ${{ env.dtb_path }}/dtb/rockchip
+          cd ${{ env.dtb_path }}/dtb/rockchip
+          echo  "反编译"
+          dtc -I dtb -O dts  rk3566-lckfb-tspi.dtb  -o file.dts
+          echo "删除未修改的dtb"
+          rm -rf rk3566-lckfb-tspi.dtb
+          echo "修改dts"
+          sed -i '/mmcblk0p3/d'  file.dts
+          echo "重新编译dtb"
+          dtc -I dts -O dtb file.dts -o rk3566-lckfb-tspi.dtb
+          echo "删除未修改的dts"
+          rm -rf file.dts
+          echo "打包dtb"
+          tar -zcf dtb-rockchip-${{ env.kernel_main_version }}.tar.gz  *
+          mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
+
+
+
+
+      - name: Prepare chroot directories
+        run: |
+          sudo mkdir -p /mnt/chroot/lib/modules
+          sudo mkdir -p /mnt/chroot/usr/src
+          sudo cp -a ${{ env.modules_path }}/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
+          sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /mnt/chroot/usr/src/
+
+      - name: Install chroot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static initramfs-tools u-boot-tools
+          
+      - name: Setup  chroot base system
+        run: |
+          sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
+          
+          # 准备 chroot 环境
+          sudo cp /usr/bin/qemu-aarch64-static /mnt/chroot/usr/bin/
+          sudo cp /etc/resolv.conf /mnt/chroot/etc/
+          
+          # 挂载必要的文件系统
+          sudo mount -t proc proc /mnt/chroot/proc
+          sudo mount -t sysfs sys /mnt/chroot/sys
+          sudo mount -o bind /dev /mnt/chroot/dev
+
+      - name: Pre-configure chroot environment
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'PREEOF'
+          # 配置完整的软件源
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy main universe multiverse" > /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-security main universe multiverse" >> /etc/apt/sources.list
+          
+          # 更新软件包列表
+          apt-get update -y
+          PREEOF
+
+
+    
+
+      - name: Build initrd in chroot
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'EOF'
+          # 安装必要软件包（使用完整包名和明确的安装选项）
+          apt-get install -y --no-install-recommends \
+            locales \
+            dialog \
+            apt-utils \
+            initramfs-tools \
+            u-boot-tools \
+            busybox-static \
+            kmod \
+            linux-base
+
+          # 配置 locale
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          /usr/sbin/locale-gen en_US.UTF-8
+          
+          # 创建 boot 目录
+          mkdir -p /boot
+          
+          # 生成 initrd
+          echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
+          [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" /etc/initramfs-tools/update-initramfs.conf
+          [[ -f "/etc/initramfs-tools/initramfs.conf" ]] && sed -i "s|^COMPRESS=.*|COMPRESS=gzip|g"   /etc/initramfs-tools/initramfs.conf
+          update-initramfs -c -k  ${{ env.kernel_main_version }}
+          
+          # 生成 uInitrd
+          echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
+          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+            -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}; then
+            echo "mkimage 执行失败，尝试重新安装 u-boot-tools..."
+            apt-get install -y --reinstall u-boot-tools
+            /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+              -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          fi
+          
+          # 验证生成的文件
+          ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          EOF
+
+
+      - name: copy initrd.img  uInitrd
+        run: |
+          sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
+          sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
+          echo "复制出来的initrd.img、uInitrd"
+          ls -lh ${{ env.armbian_file_path }} 
+
+      - name: Clean chroot
+        run: |
+          sudo umount /mnt/chroot/dev
+          sudo umount /mnt/chroot/proc
+          sudo umount /mnt/chroot/sys
+          sudo rm -rf /mnt/chroot
+          
+      - name: cp armbian_boot_file
+        run: |
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
+          cd ${{ env.armbian_file_path }}
+          echo "查看未打包的boot文件"
+          ls  -lh
+          sudo chown -R runner:runner  ${{ env.armbian_file_path }}/
+          tar -zcf boot-${{ env.kernel_main_version }}.tar.gz   *
+          echo "查看打包后所有文件"
+          ls -lh
+
+      - name: Build  master_armbian-6.16.0-boot
+        run: |
+          cd ${{ env.armbian_path }}/
+          mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
+          echo "查看armbian_boot下所有需要打包的文件"
+          ls -lh
+          tar -zcf  armbian_boot-${{ env.kernel_main_version }}.tar.gz  *
+          echo  "查看打包后的文件是否存在"
+          ls -lh
+          
       - name: Upload Kernel to Release  master
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name || format('v{0}', env.kernel_main_version) }}
-          name: "Kernel ${{ env.kernel_main_version }}"          
+          name: "Master Kernel ${{ env.kernel_main_version }}"          
           artifacts: |
-            ${{ env.src_path }}/boot_files/rk3566-tspi-${{ env.kernel_main_version }}.tar.gz          
+            ${{ env.src_path }}/boot_files/rk3566-tspi-${{ env.kernel_main_version }}.tar.gz
+            ${{ env.armbian_path }}/armbian_boot-${{ env.kernel_main_version }}.tar.gz
           body: |
             master  主线最新版本，不一定能稳定使用。设备树默认是ap6255的WiFi模块
             tag：  ${{ github.event.inputs.target_tag }}
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6255
-            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     解压缩后，通过瑞芯微刷机工具刷入
+            rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     里面包含boot.img、modules、headers、解压缩后，通过瑞芯微刷机工具刷入boot.img
             armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径
           draft: false
           prerelease: false
