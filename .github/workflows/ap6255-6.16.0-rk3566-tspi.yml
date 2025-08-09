@@ -182,15 +182,113 @@ jobs:
           mv   dtb-rockchip-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
 
 
-      - name:  copy armbian_boot_file 
+
+
+      - name: Prepare chroot directories
+        run: |
+          sudo mkdir -p /mnt/chroot/lib/modules
+          sudo mkdir -p /mnt/chroot/usr/src
+          sudo cp -a ${{ env.modules_path }}/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
+          sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /mnt/chroot/usr/src/
+
+      - name: Install chroot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static initramfs-tools u-boot-tools
+          
+      - name: Setup  chroot base system
+        run: |
+          sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
+          
+          # 准备 chroot 环境
+          sudo cp /usr/bin/qemu-aarch64-static /mnt/chroot/usr/bin/
+          sudo cp /etc/resolv.conf /mnt/chroot/etc/
+          
+          # 挂载必要的文件系统
+          sudo mount -t proc proc /mnt/chroot/proc
+          sudo mount -t sysfs sys /mnt/chroot/sys
+          sudo mount -o bind /dev /mnt/chroot/dev
+
+      - name: Pre-configure chroot environment
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'PREEOF'
+          # 配置完整的软件源
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy main universe multiverse" > /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-security main universe multiverse" >> /etc/apt/sources.list
+          
+          # 更新软件包列表
+          apt-get update -y
+          PREEOF
+
+
+    
+
+      - name: Build initrd in chroot
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'EOF'
+          # 安装必要软件包（使用完整包名和明确的安装选项）
+          apt-get install -y --no-install-recommends \
+            locales \
+            dialog \
+            apt-utils \
+            initramfs-tools \
+            u-boot-tools \
+            busybox-static \
+            kmod \
+            linux-base
+
+          # 配置 locale
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          /usr/sbin/locale-gen en_US.UTF-8
+          
+          # 创建 boot 目录
+          mkdir -p /boot
+          
+          # 生成 initrd
+          echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
+          [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" /etc/initramfs-tools/update-initramfs.conf
+          [[ -f "/etc/initramfs-tools/initramfs.conf" ]] && sed -i "s|^COMPRESS=.*|COMPRESS=gzip|g"   /etc/initramfs-tools/initramfs.conf
+          update-initramfs -c -k  ${{ env.kernel_main_version }}
+          
+          # 生成 uInitrd
+          echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
+          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+            -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}; then
+            echo "mkimage 执行失败，尝试重新安装 u-boot-tools..."
+            apt-get install -y --reinstall u-boot-tools
+            /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+              -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          fi
+          
+          # 验证生成的文件
+          ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          EOF
+
+
+      - name: copy initrd.img  uInitrd
+        run: |
+          sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
+          sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
+          echo "复制出来的initrd.img、uInitrd"
+          ls -lh ${{ env.armbian_file_path }} 
+
+      - name: Clean chroot
+        run: |
+          sudo umount /mnt/chroot/dev
+          sudo umount /mnt/chroot/proc
+          sudo umount /mnt/chroot/sys
+          sudo rm -rf /mnt/chroot
+          
+      - name: cp armbian_boot_file
         run: |
           cp -a ${{ env.src_path }}/arch/arm64/boot/Image   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
-
           cd ${{ env.armbian_file_path }}
           echo "查看未打包的boot文件"
           ls  -lh
+          sudo chown -R runner:runner  ${{ env.armbian_file_path }}/
           tar -zcf boot-${{ env.kernel_main_version }}.tar.gz   *
           echo "查看打包后所有文件"
           ls -lh
@@ -219,7 +317,7 @@ jobs:
             Kernel version: ${{ env.kernel_main_version }}
             rk3566-lckfb-tspi-ap6255
             rk3566-tspi-${{ env.kernel_main_version }}.tar.gz     里面包含boot.img、modules、headers、解压缩后，通过瑞芯微刷机工具刷入boot.img
-            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径 压缩包里没有initrd.img、uImage，需要自己在armbian上制作 
+            armbian_boot-${{ env.kernel_main_version }}.tar.gz    用于更新armbian内核的压缩包，解压缩后自行替换压缩包里面的文件到相应路径 
             
             
           draft: false
