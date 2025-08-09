@@ -269,7 +269,7 @@ jobs:
         run: |
           sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
           sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
-          sudo cp /mnt/chroot/usr/src/linux-headers-${{ env.kernel_main_version }}/headers-${{ env.kernel_main_version }}.tar.gz    ${{ env.armbian_file_path }}/
+          sudo cp /mnt/chroot/usr/src/linux-headers-${{ env.kernel_main_version }}/headers-${{ env.kernel_main_version }}.tar.gz    ${{ env.armbian_path }}/
           echo "复制出来的initrd.img、uInitrd"
           ls -lh ${{ env.armbian_file_path }} 
 
