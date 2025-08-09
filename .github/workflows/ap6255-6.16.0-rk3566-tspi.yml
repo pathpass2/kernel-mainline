@@ -293,7 +293,7 @@ jobs:
           echo "查看打包后所有文件"
           ls -lh
 
-      - name: Build  ap6212_armbian-6.16.0-boot
+      - name: Build  ap6255_armbian-6.16.0-boot
         run: |
           cd ${{ env.armbian_path }}/
           mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
