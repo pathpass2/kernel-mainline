@@ -30,6 +30,10 @@ actions编译：
 如果是原装的ap6212-WiFi模块，选择ap6212-6.16.1_kernel.yml  
 ps：手里没有ap6212，买来就换了ap6255，所以没办法测试ap6212的蓝牙、WiFi
 
+
+ps：主线内核的dtb名称跟armbian内核的dtb名称不一样，记得修改
+<img width="1026" height="732" alt="image" src="https://github.com/user-attachments/assets/3e25b008-e547-4662-b662-c6967a262d9e" />
+
 通过sd卡启动的armbian
 <img width="1239" height="876" alt="d94e0ee5c0448b20ed7180c561af322c" src="https://github.com/user-attachments/assets/4c9fdd7e-b69f-4fe7-bea9-32206f17d8bc" />
 
