@@ -88,7 +88,7 @@ jobs:
           mkdir -p  ${{ env.armbian_path }}/
           mkdir -p  ${{ env.armbian_file_path }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  tspi_defconfig
-          make ARCH=$ARCH CROSS_COMPILE=${{env.corss_compile}} dtbs
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu- dtbs
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  rk3566-lckfb-tspi.img  -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
