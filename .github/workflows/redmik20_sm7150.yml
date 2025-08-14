@@ -1,0 +1,276 @@
+name: Build redmik20_sm7150_6+128G.img
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: 'Source tag to build from'
+        required: true
+        default: 'redmik20_sm7150_v6.16.0'
+                
+env:
+  ARCH: arm64
+  src_path: ${{ github.workspace }}
+
+    
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout source tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_tag }}
+          submodules: true
+          fetch-depth: 0
+          # 关键：保留文件权限
+          persist-credentials: false
+      
+
+      - name: Install Latest LZ4
+        run: |
+          # 从 GitHub 下载最新版 LZ4
+          LZ4_LATEST=$(curl -s https://api.github.com/repos/lz4/lz4/releases/latest | grep 'tarball_url' | cut -d\" -f4)
+          wget $LZ4_LATEST -O lz4-latest.tar.gz
+          tar -xzf lz4-latest.tar.gz
+          cd lz4-lz4-*
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+          lz4 --version
+          
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            device-tree-compiler \
+            u-boot-tools \
+            libssl-dev \
+            bc \
+            flex \
+            bison \
+            libncurses-dev \
+            initramfs-tools \
+            busybox-static  \
+            mkbootimg  \
+            simg2img  \
+            img2simg  \
+            build-essential  \
+            binfmt-support
+          sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
+      - name: Setup ARM Toolchain
+        run: |
+          wget https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          tar xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          echo "$(pwd)/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
+      - name: Get Kernel Version
+        run: |
+          # 获取内核版本号
+          echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
+      - name: Set armbian_path
+        run: |
+          echo  "modules_path=${{ env.src_path }}/modules/lib/modules" >> $GITHUB_ENV
+          echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
+          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
+          echo "boot_img_file=${{ env.src_path }}/boot_img_file"  >> $GITHUB_ENV
+          
+      - name: Build Kernel
+        run: |
+          mkdir -p  ${{ env.armbian_path }}/
+          mkdir -p  ${{ env.armbian_file_path }}
+          mkdir -p  ${{ env.boot_img_file }}
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  xiaomi5s_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image  Image.gz modules -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
+          echo "${{ env.kernel_main_version }}"
+          
+      - name: Compression  modules
+        run: |
+          cd  ${{ env.modules_path }}
+          tar -zcf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
+          mv ${{ env.kernel_main_version }}-modules.tar.gz  ${{ env.armbian_path }}/
+      
+      - name: Build and Compression Kernel-headers
+        run: |
+          # 制作linux-headers头文件
+          mkdir  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}
+          cp -a  Module.symvers      ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cp -a  Makefile           ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cp -a  scripts            ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          mkdir -p                   ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64
+          cp -a arch/arm64/include    ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/include
+          cp -a arch/arm64/kvm          ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/kvm 
+          cp -a arch/arm64/Makefile      ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/Makefile
+          cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cd ${{ env.src_path }}
+          tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
+          echo "当前所在路径：$(pwd)"
+          echo "查看打包的linux-headers-${{ env.kernel_main_version }}.tar.gz"
+          ls  -lh ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
+          mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+          
+      - name: Compression dtb
+        run: | 
+          mkdir -p ${{ env.dtb_path }}/dtb
+          ls -lh  ${{ env.src_path }}/arch/arm64/boot/dts/qcom
+          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/qcom/*.dtb   ${{ env.dtb_path }}/dtb
+          cd  ${{ env.dtb_path }}/dtb
+          tar -zcf dtb-${{ env.kernel_main_version }}.tar.gz  *
+          mv   dtb-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
+      - name: Prepare chroot directories
+        run: |
+          sudo mkdir -p /mnt/chroot/lib/modules
+          sudo mkdir -p /mnt/chroot/usr/src
+          sudo cp -a ${{ env.modules_path }}/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
+          sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /mnt/chroot/usr/src/
+      - name: Install chroot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static initramfs-tools u-boot-tools
+          
+      - name: Setup  chroot base system
+        run: |
+          sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
+          
+          # 准备 chroot 环境
+          sudo cp /usr/bin/qemu-aarch64-static /mnt/chroot/usr/bin/
+          sudo cp /etc/resolv.conf /mnt/chroot/etc/
+          
+          # 挂载必要的文件系统
+          sudo mount -t proc proc /mnt/chroot/proc
+          sudo mount -t sysfs sys /mnt/chroot/sys
+          sudo mount -o bind /dev /mnt/chroot/dev
+      - name: Pre-configure chroot environment
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'PREEOF'
+          # 配置完整的软件源
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy main universe multiverse" > /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-security main universe multiverse" >> /etc/apt/sources.list
+          
+          # 更新软件包列表
+          apt-get update -y
+          PREEOF
+    
+
+      - name: Build initrd in chroot
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'EOF'
+          # 安装必要软件包（使用完整包名和明确的安装选项）
+          apt-get install -y --no-install-recommends \
+            locales \
+            dialog \
+            apt-utils \
+            initramfs-tools \
+            u-boot-tools \
+            busybox-static \
+            kmod \
+            linux-base
+          # 配置 locale
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          /usr/sbin/locale-gen en_US.UTF-8
+          
+          # 创建 boot 目录
+          mkdir -p /boot
+          
+          # 生成 initrd
+          echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
+          [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" /etc/initramfs-tools/update-initramfs.conf
+          [[ -f "/etc/initramfs-tools/initramfs.conf" ]] && sed -i "s|^COMPRESS=.*|COMPRESS=gzip|g"   /etc/initramfs-tools/initramfs.conf
+          update-initramfs -c -k  ${{ env.kernel_main_version }}
+          
+          # 生成 uInitrd
+          echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
+          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+            -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}; then
+            echo "mkimage 执行失败，尝试重新安装 u-boot-tools..."
+            apt-get install -y --reinstall u-boot-tools
+            /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+              -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          fi
+          
+          # 验证生成的文件
+          ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          EOF
+      - name: copy initrd.img  uInitrd
+        run: |
+          sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
+          sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
+          echo "复制出来的initrd.img、uInitrd"
+          ls -lh ${{ env.armbian_file_path }} 
+      - name: Clean chroot
+        run: |
+          sudo umount /mnt/chroot/dev
+          sudo umount /mnt/chroot/proc
+          sudo umount /mnt/chroot/sys
+          sudo rm -rf /mnt/chroot
+          
+      - name: cp boot_file
+        run: |
+          echo "查看arch/arm64/boot/下编译的文件"
+          ls ${{ env.src_path }}/arch/arm64/boot/
+          
+          if [ -f ${{ env.src_path }}/arch/arm64/boot/zImage ];then
+          cp -a ${{ env.src_path }}/arch/arm64/boot/zImage  ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          else
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image.gz   ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          fi
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
+          cd ${{ env.armbian_file_path }}
+          echo "查看未打包的boot文件"
+          ls  -lh
+          sudo chown -R runner:runner  ${{ env.armbian_file_path }}/
+          tar -zcf boot-${{ env.kernel_main_version }}.tar.gz   *
+          echo "查看打包后所有文件"
+          ls -lh
+
+      - name: Build  boot.img
+        run: |
+          cd ${{ env.boot_img_file }}
+          cp -a  ${{ env.armbian_file_path }}/*  .
+          cp -a  ${{ env.dtb_path }}/dtb/sm7150-xiaomi-davinci.dtb  .
+          cat vmlinuz-${{ env.kernel_main_version }}  sm7150-xiaomi-davinci.dtb  > kernel-dtb
+          mkbootimg --base 0x80000000 \
+            --kernel_offset 0x00008000 \
+            --ramdisk_offset 0x01000000 \
+            --tags_offset 0x00000100 \
+            --pagesize 4096 \
+            --ramdisk ./initrd.img-${{ env.kernel_main_version }} \
+            --cmdline "console=tty0 root=UUID=3d5a63f7-e85b-4637-af14-a6963f0f48d8 rw loglevel=3 maxcpus=4"\
+            --kernel ./kernel-dtb   -o ./redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+          echo "查看打包后的文件"
+          ls -lh  
+      - name: Build  redmik20_sm7150-${{ env.kernel_main_version }}-boot
+        run: |
+          cd ${{ env.armbian_path }}/
+          mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
+          tar -zcf  redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz  *
+          ls -lh
+          
+      - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.inputs.target_tag }}
+          name: "redmik20_sm7150 Kernel ${{ env.kernel_main_version }}"
+          
+          artifacts: |
+            ${{ env.armbian_path }}/redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz
+            ${{ env.boot_img_file }}/redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+          body: |
+            Kernel version: ${{ env.kernel_main_version }}
+            redmik20_sm7150 主线内核-${{ env.kernel_main_version }}
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到boot分区
+            redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz包含了内核所需的dtb、kernel、headers、modules等，制作rootfs时使用。
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img的rootfs的内核UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
+            可以将boot.img解包重新打包指定新的UUID，也可以制作一个UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8的rootfs            
+          draft: false
+          prerelease: false
+          allowUpdates: true
+          replacesArtifacts: false
