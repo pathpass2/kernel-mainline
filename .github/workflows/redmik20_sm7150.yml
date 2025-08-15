@@ -275,8 +275,8 @@ jobs:
             redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到cache分区
             redmik20_sm7150_firmware.tar.gz      驱动所需的firmware
             redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz包含了内核所需的dtb、kernel、headers、modules等，制作rootfs时使用。
-            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img的rootfs的内核UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
-            可以将boot.img解包重新打包指定新的UUID，也可以制作一个UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8的rootfs            
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img  指定rootfs的UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
+            可以将boot.img解包重新打包。指定新的rootfs的UUID，也可以制作一个UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8的rootfs            
           draft: false
           prerelease: false
           allowUpdates: true
