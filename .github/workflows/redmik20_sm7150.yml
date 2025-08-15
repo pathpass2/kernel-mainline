@@ -83,7 +83,7 @@ jobs:
           mkdir -p  ${{ env.armbian_path }}/
           mkdir -p  ${{ env.armbian_file_path }}
           mkdir -p  ${{ env.boot_img_file }}
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  xiaomi5s_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image  Image.gz modules -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
@@ -250,7 +250,15 @@ jobs:
           mv ${{ env.armbian_file_path }}/boot-${{ env.kernel_main_version }}.tar.gz   .
           tar -zcf  redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz  *
           ls -lh
-          
+
+      - name: Compression firmware
+        run: |
+          cd   ${{ env.src_path }}
+          if [[ -d redmik20-firmware ]];then
+          mv redmik20-firmware  firmware
+          fi
+          tar -zcf redmik20_sm7150_firmware.tar.gz  firmware
+      
       - name: Upload Kernel to Release  ${{ github.event.inputs.source_tag }}
         uses: ncipollo/release-action@v1
         with:
@@ -260,10 +268,12 @@ jobs:
           artifacts: |
             ${{ env.armbian_path }}/redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz
             ${{ env.boot_img_file }}/redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+            ${{ env.src_path }}/redmik20_sm7150_firmware.tar.gz
           body: |
-            Kernel version: ${{ env.kernel_main_version }}
-            redmik20_sm7150 主线内核-${{ env.kernel_main_version }}
+            Kernel version: ${{ env.kernel_main_version }}            
+            redmik20_sm7150 主线内核-${{ env.kernel_main_version }}   (红米k20不带pro，高通骁龙730)
             redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到boot分区
+            redmik20_sm7150_firmware.tar.gz      驱动所需的firmware
             redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz包含了内核所需的dtb、kernel、headers、modules等，制作rootfs时使用。
             redmik20_sm7150_${{ env.kernel_main_version }}_boot.img的rootfs的内核UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
             可以将boot.img解包重新打包指定新的UUID，也可以制作一个UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8的rootfs            
