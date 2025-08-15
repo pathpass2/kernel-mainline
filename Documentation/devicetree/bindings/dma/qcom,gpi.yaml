@@ -24,12 +24,14 @@ properties:
           - qcom,sm6350-gpi-dma
       - items:
           - enum:
+              - qcom,milos-gpi-dma
               - qcom,qcm2290-gpi-dma
               - qcom,qcs8300-gpi-dma
               - qcom,qdu1000-gpi-dma
               - qcom,sa8775p-gpi-dma
               - qcom,sar2130p-gpi-dma
               - qcom,sc7280-gpi-dma
+              - qcom,sc8280xp-gpi-dma
               - qcom,sdx75-gpi-dma
               - qcom,sm6115-gpi-dma
               - qcom,sm6375-gpi-dma
@@ -45,6 +47,7 @@ properties:
               - qcom,qcs615-gpi-dma
               - qcom,sdm670-gpi-dma
               - qcom,sm6125-gpi-dma
+              - qcom,sm7150-gpi-dma
               - qcom,sm8150-gpi-dma
               - qcom,sm8250-gpi-dma
           - const: qcom,sdm845-gpi-dma

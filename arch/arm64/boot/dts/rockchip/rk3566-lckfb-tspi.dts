@@ -15,18 +15,13 @@
 	compatible = "lckfb,tspi-rk3566", "rockchip,rk3566";
 
 	aliases {
-		mmc0 = &sdhci;  //设置emmc为mmcblk0
-		mmc1 = &sdmmc0; //sd卡为mmcblk1
-//		mmc0 = &sdmmc0;
-//		mmc1 = &sdhci;
+		mmc0 = &sdmmc0;
+		mmc1 = &sdhci;
 		mmc2 = &sdmmc1;
 	};
 
 	chosen: chosen {
-//如果使用armbian-boot,需要注释，或者删掉这一行
-		bootargs = "root=/dev/mmcblk0p3 rootfstype=ext4 rw rootwait console=ttyS2,115200";
-//
-		stdout-path = "serial2:115200n8";
+		stdout-path = "serial2:1500000n8";
 	};
 
 	reserved-memory {
@@ -593,9 +588,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdmmc0_bus4 &sdmmc0_clk &sdmmc0_cmd &sdmmc0_det>;
 	sd-uhs-sdr104;
-	supports-sd;
-	vmmc-supply = <&vcc3v3_sd>;  //声明sd卡
-	vqmmc-supply = <&vccio_sd>;  //更改vcc1v8为vccio_sd
+	vmmc-supply = <&vcc3v3_sd>;
+	vqmmc-supply = <&vcc_1v8>;
 	status = "okay";
 };
 
@@ -618,8 +612,7 @@
 	status = "okay";
 
 	brcmf: wifi@1 {
-		compatible = "brcm,bcm43455-fmac";  //ap6255
-//		compatible = "brcm,bcm4329-fmac";
+		compatible = "brcm,bcm4329-fmac";
 		reg = <1>;
 		interrupt-parent = <&gpio2>;
 		interrupts = <RK_PB2 IRQ_TYPE_LEVEL_HIGH>;
@@ -635,10 +628,6 @@
 	status = "okay";
 };
 
-&leds {
-	status = "okay";
-};
-
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1m0_xfer &uart1m0_ctsn &uart1m0_rtsn>;
@@ -646,8 +635,7 @@
 	status = "okay";
 
 	bluetooth: bluetooth {
-		compatible = "brcm,bcm4345c5";  //ap6255
-//		compatible = "brcm,bcm43438-bt";
+		compatible = "brcm,bcm43438-bt";
 		clocks = <&rk809 1>;
 		clock-names = "lpo";
 		max-speed = <3000000>;
