@@ -272,7 +272,7 @@ jobs:
           body: |
             Kernel version: ${{ env.kernel_main_version }}            
             redmik20_sm7150 主线内核-${{ env.kernel_main_version }}   (红米k20不带pro，高通骁龙730)
-            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到boot分区
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到cache分区
             redmik20_sm7150_firmware.tar.gz      驱动所需的firmware
             redmik20_sm7150_boot-${{ env.kernel_main_version }}.tar.gz包含了内核所需的dtb、kernel、headers、modules等，制作rootfs时使用。
             redmik20_sm7150_${{ env.kernel_main_version }}_boot.img的rootfs的内核UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
