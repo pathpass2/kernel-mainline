@@ -234,9 +234,16 @@ dtb-$(CONFIG_ARCH_HIGHBANK) += \
 dtb-$(CONFIG_ARCH_HIP01) += \
 	hip01-ca9x2.dtb
 dtb-$(CONFIG_ARCH_HIP04) += \
-	hip04-d01.dtb
+	hip04-d01.dtb 
 dtb-$(CONFIG_ARCH_HISI) += \
-	hi3519-demb.dtb
+	hi3519-demb.dtb	\
+	hi3716cv200.dtb	\
+	hi3716dv100.dtb	\
+	hi3716mv410.dtb	\
+	hi3716mv420n.dtb \
+	hi3716mv450.dtb	\
+	hi3798mv100.dtb \
+	hi3798cv200.dtb
 dtb-$(CONFIG_ARCH_HIX5HD2) += \
 	hisi-x5hd2-dkb.dtb
 dtb-$(CONFIG_ARCH_INTEGRATOR) += \

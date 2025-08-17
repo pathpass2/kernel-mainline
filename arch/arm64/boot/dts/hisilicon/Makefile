@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0
 dtb-$(CONFIG_ARCH_HISI) += hi3660-hikey960.dtb
 dtb-$(CONFIG_ARCH_HISI) += hi3670-hikey970.dtb
+dtb-$(CONFIG_ARCH_HISI) += hi3796mv200.dtb
+dtb-$(CONFIG_ARCH_HISI) += hi3796mv200_fpga_umap6.dtb
 dtb-$(CONFIG_ARCH_HISI) += hi3798cv200-poplar.dtb
+dtb-$(CONFIG_ARCH_HISI) += hi3798mv200.dtb
+dtb-$(CONFIG_ARCH_HISI) += hi3798mv300.dtb
+dtb-$(CONFIG_ARCH_HISI) += hi3798mv310.dtb
 dtb-$(CONFIG_ARCH_HISI) += hi6220-hikey.dtb
 dtb-$(CONFIG_ARCH_HISI) += hip05-d02.dtb
 dtb-$(CONFIG_ARCH_HISI) += hip06-d03.dtb
