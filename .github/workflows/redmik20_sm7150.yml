@@ -240,7 +240,7 @@ jobs:
             --tags_offset 0x00000100 \
             --pagesize 4096 \
             --ramdisk ./initrd.img-${{ env.kernel_main_version }} \
-            --cmdline "console=tty0 root=UUID=3d5a63f7-e85b-4637-af14-a6963f0f48d8 rw loglevel=3 maxcpus=4"\
+            --cmdline "console=tty0 console=ttyMSM0,115200n8 root=UUID=3d5a63f7-e85b-4637-af14-a6963f0f48d8 rw loglevel=3 maxcpus=4"\
             --kernel ./kernel-dtb   -o ./redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
           echo "查看打包后的文件"
           ls -lh  
