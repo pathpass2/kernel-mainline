@@ -102,7 +102,7 @@ jobs:
           
           echo "内核编译完成，版本: ${{ env.kernel_main_version }}"
           echo "生成的文件:"
-          ls -lh arch/arm64/boot/ vmlinuz.efi
+          ls -lh arch/arm64/boot/
 
       - name: Build systemd-boot (bootaa64.efi)
         run: |
