@@ -1,4 +1,4 @@
-name: Build redmik20_mainline_kernel
+name: Build redmik20
 
 on:
   workflow_dispatch:
