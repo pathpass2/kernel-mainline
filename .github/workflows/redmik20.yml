@@ -57,8 +57,6 @@ jobs:
             img2simg  \
             build-essential  \
             binfmt-support \
-            grub-efi-aa64-bin \
-            efibootmgr \
             dosfstools
           sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
       
