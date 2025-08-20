@@ -65,7 +65,9 @@ jobs:
             texinfo \
             meson \
             ninja-build \
-            pkg-config
+            pkg-config \
+            gnu-efi \
+            libelf-dev
           sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
       
       - name: Setup ARM Toolchain
@@ -112,13 +114,29 @@ jobs:
           git clone --depth=1 https://github.com/systemd/systemd.git
           cd systemd
           
+          # 创建交叉编译配置文件
+          mkdir -p cross
+          cat > cross/ubuntu-arm64.txt << 'EOF'
+          [binaries]
+          c = 'aarch64-none-linux-gnu-gcc'
+          cpp = 'aarch64-none-linux-gnu-g++'
+          ar = 'aarch64-none-linux-gnu-ar'
+          strip = 'aarch64-none-linux-gnu-strip'
+          pkgconfig = 'pkg-config'
+          
+          [host_machine]
+          system = 'linux'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          
+          [properties]
+          needs_exe_wrapper = true
+          EOF
+          
           # 创建构建目录
           mkdir build
           cd build
-          
-          # 设置交叉编译环境
-          export CC=aarch64-none-linux-gnu-gcc
-          export CXX=aarch64-none-linux-gnu-g++
           
           # 配置 meson
           meson setup .. \
@@ -127,6 +145,7 @@ jobs:
             -Dgnu-efi=true \
             -Defi-cc=aarch64-none-linux-gnu-gcc \
             -Defi-ld=aarch64-none-linux-gnu-ld \
+            -Defi-includedir=/usr/include/ \
             -Defi-libdir=/usr/lib/ \
             -Dmode=release \
             -Dbootloader=true \
@@ -156,7 +175,14 @@ jobs:
           echo "创建 systemd-boot 配置文件..."
           mkdir -p ${{ env.src_path }}/boot_config/loader/entries
           
-          # 只创建启动项配置文件 pmos.conf，不创建 loader.conf
+          # 创建 loader.conf
+          cat > ${{ env.src_path }}/boot_config/loader.conf << 'EOF'
+          default pmos.conf
+          timeout 3
+          console-mode keep
+          EOF
+          
+          # 创建启动项配置文件 pmos.conf
           cat > ${{ env.src_path }}/boot_config/loader/entries/pmos.conf << 'EOF'
           title   Fedora42
           sort-key fedora42
@@ -166,6 +192,7 @@ jobs:
           EOF
           
           echo "配置文件已创建:"
+          cat ${{ env.src_path }}/boot_config/loader.conf
           cat ${{ env.src_path }}/boot_config/loader/entries/pmos.conf
       
       - name: Compression modules
@@ -289,7 +316,9 @@ jobs:
           echo "复制 bootaa64.efi..."
           cp ${{ env.src_path }}/bootaa64.efi boot/efi/boot/
           
-          echo "复制启动项配置文件..."
+          # 复制配置文件
+          echo "复制配置文件..."
+          cp ${{ env.src_path }}/boot_config/loader.conf boot/loader/
           cp ${{ env.src_path }}/boot_config/loader/entries/pmos.conf boot/loader/entries/
           
           # 使用编译生成的 linux.efi
