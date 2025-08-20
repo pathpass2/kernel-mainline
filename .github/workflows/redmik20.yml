@@ -249,7 +249,7 @@ jobs:
           # 创建 FAT32 文件系统镜像
           echo "创建 FAT32 文件系统镜像..."
           dd if=/dev/zero of=boot.img bs=1M count=64
-          mkfs.fat -F32 -n "MAILLINE_BOOT" boot.img
+          mkfs.fat -F32 -n "PMOS_BOOT" boot.img
           
           # 挂载并复制文件
           echo "挂载并复制文件..."
