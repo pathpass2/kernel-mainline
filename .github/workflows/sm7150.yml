@@ -1,0 +1,334 @@
+name: Build sm7150
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: 'Source tag to build from'
+        required: true
+        default: 'redmik20_sm7150_v6.16.0'
+                
+env:
+  ARCH: arm64
+  src_path: ${{ github.workspace }}
+
+    
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout source tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_tag }}
+          submodules: true
+          fetch-depth: 0
+          persist-credentials: false
+      
+      - name: Install Latest LZ4
+        run: |
+          LZ4_LATEST=$(curl -s https://api.github.com/repos/lz4/lz4/releases/latest | grep 'tarball_url' | cut -d\" -f4)
+          wget $LZ4_LATEST -O lz4-latest.tar.gz
+          tar -xzf lz4-latest.tar.gz
+          cd lz4-lz4-*
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+          lz4 --version
+          
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            device-tree-compiler \
+            u-boot-tools \
+            libssl-dev \
+            bc \
+            flex \
+            bison \
+            libncurses-dev \
+            initramfs-tools \
+            busybox-static  \
+            mkbootimg  \
+            simg2img  \
+            img2simg  \
+            build-essential  \
+            binfmt-support \
+            dosfstools \
+            mtools
+          sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
+      
+      - name: Setup ARM Toolchain
+        run: |
+          wget https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          tar xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          echo "$(pwd)/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu/bin" >> $GITHUB_PATH
+      
+      - name: Get Kernel Version
+        run: |
+          echo "kernel_main_version=$(make kernelversion)" >> $GITHUB_ENV
+      
+      - name: Set armbian_path
+        run: |
+          echo  "modules_path=${{ env.src_path }}/modules/lib/modules" >> $GITHUB_ENV
+          echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
+          echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
+          echo "boot_img_file=${{ env.src_path }}/boot_img_file"  >> $GITHUB_ENV
+          
+      - name: Build Kernel
+        run: |
+          mkdir -p  ${{ env.armbian_path }}/
+          mkdir -p  ${{ env.armbian_file_path }}
+          mkdir -p  ${{ env.boot_img_file }}
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image.gz modules -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
+          echo "${{ env.kernel_main_version }}"
+      
+      - name: Build vmlinuz.efi
+        run: |
+          # 编译 EFI 可执行文件
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  vmlinuz.efi
+          
+          # 检查是否生成成功
+          if [ -f "vmlinuz.efi" ]; then
+            echo "✓ vmlinuz.efi 编译成功"
+            ls -lh vmlinuz.efi
+          else
+            echo "✗ vmlinuz.efi 编译失败"
+            exit 1
+          fi
+      
+      - name: Compression modules
+        run: |
+          cd  ${{ env.modules_path }}
+          tar -zcf ${{ env.kernel_main_version }}-modules.tar.gz   ${{ env.kernel_main_version }}
+          mv ${{ env.kernel_main_version }}-modules.tar.gz  ${{ env.armbian_path }}/
+      
+      - name: Build and Compression Kernel-headers
+        run: |
+          mkdir  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}
+          cp -a  Module.symvers      ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cp -a  Makefile           ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cp -a  scripts            ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          mkdir -p                   ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64
+          cp -a arch/arm64/include    ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/include
+          cp -a arch/arm64/kvm          ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/kvm 
+          cp -a arch/arm64/Makefile      ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/arch/arm64/Makefile
+          cp -a include                  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cp -a .config                 ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}/
+          cd ${{ env.src_path }}
+          tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
+          mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
+      
+      - name: Prepare chroot directories
+        run: |
+          sudo mkdir -p /mnt/chroot/lib/modules
+          sudo mkdir -p /mnt/chroot/usr/src
+          sudo cp -a ${{ env.modules_path }}/${{ env.kernel_main_version }} /mnt/chroot/lib/modules/
+          sudo cp -a ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}   /mnt/chroot/usr/src/
+      
+      - name: Install chroot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static initramfs-tools u-boot-tools
+          
+      - name: Setup chroot base system
+        run: |
+          sudo debootstrap --arch=arm64 --variant=minbase jammy /mnt/chroot http://ports.ubuntu.com/
+          sudo cp /usr/bin/qemu-aarch64-static /mnt/chroot/usr/bin/
+          sudo cp /etc/resolv.conf /mnt/chroot/etc/
+          sudo mount -t proc proc /mnt/chroot/proc
+          sudo mount -t sysfs sys /mnt/chroot/sys
+          sudo mount -o bind /dev /mnt/chroot/dev
+      
+      - name: Pre-configure chroot environment
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'PREEOF'
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy main universe multiverse" > /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://ports.ubuntu.com/ubuntu-ports jammy-security main universe multiverse" >> /etc/apt/sources.list
+          apt-get update -y
+          PREEOF
+    
+      - name: Build initrd in chroot
+        run: |
+          sudo chroot /mnt/chroot /bin/bash <<'EOF'
+          apt-get install -y --no-install-recommends \
+            locales \
+            dialog \
+            apt-utils \
+            initramfs-tools \
+            u-boot-tools \
+            busybox-static \
+            kmod \
+            linux-base
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          /usr/sbin/locale-gen en_US.UTF-8
+          mkdir -p /boot
+          echo "正在生成 initrd.img-${{ env.kernel_main_version }}"
+          [[ -f "/etc/initramfs-tools/update-initramfs.conf" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" /etc/initramfs-tools/update-initramfs.conf
+          [[ -f "/etc/initramfs-tools/initramfs.conf" ]] && sed -i "s|^COMPRESS=.*|COMPRESS=gzip|g"   /etc/initramfs-tools/initramfs.conf
+          update-initramfs -c -k  ${{ env.kernel_main_version }}
+          echo "正在生成 uInitrd-${{ env.kernel_main_version }}"
+          if ! /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+            -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}; then
+            echo "mkimage 执行失败，尝试重新安装 u-boot-tools..."
+            apt-get install -y --reinstall u-boot-tools
+            /usr/bin/mkimage -A arm64 -O linux -T ramdisk -C gzip -a 0 -e 0 -n uInitrd \
+              -d /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          fi
+          ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
+          EOF
+      
+      - name: Copy initrd.img
+        run: |
+          sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
+          sudo chown -R $USER.$USER ${{ env.armbian_file_path }}
+          ls -lh ${{ env.armbian_file_path }} 
+      
+      - name: Clean chroot
+        run: |
+          sudo umount /mnt/chroot/dev
+          sudo umount /mnt/chroot/proc
+          sudo umount /mnt/chroot/sys
+          sudo rm -rf /mnt/chroot
+          
+      - name: Copy boot files
+        run: |
+          ls ${{ env.src_path }}/arch/arm64/boot/
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image.gz  ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
+          # 复制编译好的 vmlinuz.efi 并重命名为 linux.efi
+          cp -a ${{ env.src_path }}/vmlinuz.efi ${{ env.armbian_file_path }}/linux.efi
+          cd ${{ env.armbian_file_path }}
+          sudo chown -R $USER.$USER ${{ env.armbian_file_path }}
+          ls -lh
+
+      - name: Create boot image structure
+        run: |
+          cd ${{ env.boot_img_file }}
+          
+          # 清理之前的文件
+          rm -rf boot/ boot_mount/ *.img
+          
+          mkdir -p boot/efi/boot
+          mkdir -p boot/dtbs/qcom
+          mkdir -p boot/loader/entries
+          
+          # 复制 EFI 文件
+          echo "复制 EFI 和配置文件..."
+          if [ -f "${{ env.src_path }}/bootaa64.efi" ]; then
+            cp ${{ env.src_path }}/bootaa64.efi boot/efi/boot/
+            echo "✓ bootaa64.efi 已复制"
+          else
+            echo "✗ bootaa64.efi 未找到"
+          fi
+          # 使用编译生成的 linux.efi
+          if [ -f "${{ env.armbian_file_path }}/linux.efi" ]; then
+            cp ${{ env.armbian_file_path }}/linux.efi boot/
+            echo "✓ linux.efi 已复制（由 vmlinuz.efi 重命名）"
+          else
+            echo "✗ linux.efi 未找到"
+            exit 1
+          fi
+          if [ -f "${{ env.src_path }}/pmos.conf" ]; then
+            cp ${{ env.src_path }}/pmos.conf boot/loader/entries/
+            echo "✓ pmos.conf 已复制"
+          else
+            echo "✗ pmos.conf 未找到"
+          fi
+          
+          # 复制设备树文件
+          echo "复制设备树文件..."
+          cp -a ${{ env.src_path }}/arch/arm64/boot/dts/qcom/sm7150-xiaomi*.dtb boot/dtbs/qcom/
+          
+          # 复制内核文件
+          echo "复制内核文件..."
+          cp ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }} boot/vmlinuz
+          cp ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }} boot/initramfs
+          cp ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }} boot/
+          
+          echo "Boot 目录结构:"
+          tree boot/
+          
+          # 创建 FAT32 文件系统镜像
+          echo "创建 FAT32 文件系统镜像..."
+          dd if=/dev/zero of=boot.img bs=1M count=128
+          mkfs.fat -F32 -n "PMOS_BOOT" boot.img
+          
+          # 挂载并复制文件
+          echo "挂载并复制文件..."
+          mkdir -p boot_mount
+          sudo mount -o loop,uid=$(id -u),gid=$(id -g) boot.img boot_mount
+          cp -r boot/* boot_mount/
+          sync
+          sudo umount boot_mount
+          rm -rf boot_mount
+          
+          mv boot.img redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+          
+          echo "生成的 boot 镜像:"
+          ls -lh ./
+          file redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+
+      - name: Create boot directory structure tar package
+        run: |
+          cd ${{ env.boot_img_file }}
+        
+          tar -czf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz boot/
+          
+          echo "Boot 结构压缩包已创建:"
+          ls -lh *.tar.gz
+          tar -tzf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz | head -10
+
+      - name: Compression firmware
+        run: |
+          cd   ${{ env.src_path }}
+          if [[ -d redmik20-firmware ]]; then
+            mv redmik20-firmware firmware
+          fi
+          if [[ -d firmware ]]; then
+            tar -zcf redmik20_sm7150_firmware.tar.gz firmware
+            echo "固件压缩包已创建"
+            ls -lh redmik20_sm7150_firmware.tar.gz
+          else
+            echo "警告: firmware 目录不存在，跳过固件压缩"
+          fi
+
+      - name: Upload Kernel to Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.inputs.target_tag }}
+          name: "redmik20_sm7150 Kernel ${{ env.kernel_main_version }}"
+          artifacts: |
+            ${{ env.boot_img_file }}/redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+            ${{ env.boot_img_file }}/redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz
+            ${{ env.armbian_path }}/${{ env.kernel_main_version }}-modules.tar.gz
+            ${{ env.armbian_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
+            ${{ env.src_path }}/redmik20_sm7150_firmware.tar.gz
+          body: |
+            Kernel version: ${{ env.kernel_main_version }}            
+            redmik20_sm7150 主线内核-${{ env.kernel_main_version }}   (红米k20不带pro，高通骁龙730)
+            
+            包含的文件:
+            - redmik20_sm7150_${{ env.kernel_main_version }}_boot.img: 通过 fastboot 刷入到 cache 分区
+            - redmik20_sm7150_firmware.tar.gz: 驱动所需的 firmware
+            - redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz: 制作 boot.img 所用到的文件结构
+            - ${{ env.kernel_main_version }}-modules.tar.gz: 内核模块
+            - linux-headers-${{ env.kernel_main_version }}.tar.gz: 内核头文件
+            
+            注意: boot.img 默认指定 rootfs 的 UUID 为 3d5a63f7-e85b-4637-af14-a6963f0f48d8
+            可以挂载 boot.img 后修改 pmos.conf 来指定新的 rootfs UUID，或者创建一个 UUID 为 3d5a63f7-e85b-4637-af14-a6963f0f48d8 的 rootfs
+            
+            EFI 文件说明:
+            - linux.efi 由内核编译时生成的 vmlinuz.efi 重命名而来
+          draft: false
+          prerelease: false
+          allowUpdates: true
+          replacesArtifacts: false
