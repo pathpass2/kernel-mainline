@@ -106,6 +106,14 @@ jobs:
           echo "生成的文件:"
           ls -lh arch/arm64/boot/
 
+      - name: Upgrade Meson
+        run: |
+          sudo apt-get remove -y meson
+          pip3 install --upgrade pip
+          pip3 install meson
+          echo "/home/runner/.local/bin" >> $GITHUB_PATH
+          meson --version
+
       - name: Build systemd-boot (bootaa64.efi)
         run: |
           echo "开始编译 systemd-boot..."
