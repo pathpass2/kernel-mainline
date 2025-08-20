@@ -69,6 +69,14 @@ jobs:
             gnu-efi \
             libelf-dev
           sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
+
+      - name: Upgrade Meson
+        run: |
+          sudo apt-get remove -y meson
+          pip3 install --upgrade pip
+          pip3 install meson
+          echo "/home/runner/.local/bin" >> $GITHUB_PATH
+          meson --version
       
       - name: Setup ARM Toolchain
         run: |
@@ -106,13 +114,6 @@ jobs:
           echo "生成的文件:"
           ls -lh arch/arm64/boot/
 
-      - name: Upgrade Meson
-        run: |
-          sudo apt-get remove -y meson
-          pip3 install --upgrade pip
-          pip3 install meson
-          echo "/home/runner/.local/bin" >> $GITHUB_PATH
-          meson --version
 
       - name: Build systemd-boot (bootaa64.efi)
         run: |
