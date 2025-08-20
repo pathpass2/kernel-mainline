@@ -221,7 +221,7 @@ jobs:
           fi
           
           mkdir -p boot/dtbs/qcom
-          cp -a ${{ env.src_path }}/arch/arm64/boot/dts/qcom/*.dtb boot/dtbs/qcom/
+          cp -a ${{ env.src_path }}/arch/arm64/boot/dts/qcom/sm7150-xiaomi*.dtb boot/dtbs/qcom/
           
           # 复制内核文件并设置权限
           cp ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }} boot/
