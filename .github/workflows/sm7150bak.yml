@@ -67,7 +67,10 @@ jobs:
             ninja-build \
             pkg-config \
             gnu-efi \
-            libelf-dev
+            libelf-dev \
+            libblkid-dev \
+            libmount-dev \
+            libkmod-dev
           sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
 
       - name: Upgrade Meson
@@ -114,13 +117,13 @@ jobs:
           echo "生成的文件:"
           ls -lh arch/arm64/boot/
 
-
       - name: Build systemd-boot (bootaa64.efi)
         run: |
           echo "开始编译 systemd-boot..."
           
           cd ${{ env.src_path }}
-          git clone --depth=1 https://github.com/systemd/systemd.git
+          # 使用兼容性更好的稳定版本
+          git clone --depth=1 --branch=v254 https://github.com/systemd/systemd.git
           cd systemd
           
           # 创建交叉编译配置文件
@@ -147,20 +150,21 @@ jobs:
           mkdir build
           cd build
           
-          # 配置 meson
+          # 配置 meson - 使用正确的选项格式
           meson setup .. \
             --cross-file=../cross/ubuntu-arm64.txt \
             -Defi=true \
-            -Dgnu-efi=true \
             -Defi-cc=aarch64-none-linux-gnu-gcc \
             -Defi-ld=aarch64-none-linux-gnu-ld \
+            -Defi-libdir=/usr/lib/aarch64-linux-gnu/ \
             -Defi-includedir=/usr/include/ \
-            -Defi-libdir=/usr/lib/ \
+            -Dgnu-efi=true \
+            -Dbootloader=enabled \
+            -Dmicrohttpd=disabled \
+            -Dukify=disabled \
+            -Dman=disabled \
             -Dmode=release \
-            -Dbootloader=true \
-            -Dukify=false \
-            -Dmicrohttpd=false \
-            -Dman=false
+            -Dtests=disabled
           
           # 编译
           ninja
