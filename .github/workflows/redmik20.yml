@@ -1,4 +1,4 @@
-name: Build redmik20
+name: Build redmik20_mainline_kernel
 
 on:
   workflow_dispatch:
@@ -58,7 +58,8 @@ jobs:
             build-essential  \
             binfmt-support \
             grub-efi-arm64-bin \
-            efibootmgr
+            efibootmgr \
+            dosfstools
           sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
       
       - name: Setup ARM Toolchain
@@ -75,47 +76,28 @@ jobs:
         run: |
           echo  "modules_path=${{ env.src_path }}/modules/lib/modules" >> $GITHUB_ENV
           echo "armbian_path=${{ env.src_path }}/armbian_boot" >> $GITHUB_ENV
-          echo "dtb_path=${{ env.src_path }}/dtbs" >> $GITHUB_ENV
           echo "armbian_file_path=${{ env.src_path }}/armbian_boot_files" >> $GITHUB_ENV
           echo "boot_img_file=${{ env.src_path }}/boot_img_file"  >> $GITHUB_ENV
-          echo "efi_path=${{ env.src_path }}/efi_files" >> $GITHUB_ENV
           
       - name: Build Kernel
         run: |
           mkdir -p  ${{ env.armbian_path }}/
           mkdir -p  ${{ env.armbian_file_path }}
           mkdir -p  ${{ env.boot_img_file }}
-          mkdir -p  ${{ env.efi_path }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image  Image.gz modules -j$(nproc)
+          # 修改：编译Image.gz而不是Image
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image.gz modules -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
-          
-      - name: Build EFI files
+      
+      - name: Check existing EFI files
         run: |
-          # 启用 EFI 支持
-          scripts/config --enable CONFIG_EFI
-          scripts/config --enable CONFIG_EFI_STUB
-          scripts/config --enable CONFIG_EFI_MIXED
-          
-          # 重新编译内核
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  -j$(nproc)
-          
-          # 创建 linux.efi (EFI stub 内核)
-          objcopy \
-            --add-section .osrel="/etc/os-release" --change-section-vma .osrel=0x20000 \
-            --add-section .cmdline="proc/cmdline" --change-section-vma .cmdline=0x30000 \
-            --add-section .linux="arch/arm64/boot/Image" --change-section-vma .linux=0x40000 \
-            --add-section .initrd="initrd.img" --change-section-vma .initrd=0x3000000 \
-            /usr/lib/systemd/boot/efi/linuxx64.efi.stub ${{ env.efi_path }}/linux.efi
-          
-          # 复制 GRUB EFI 文件作为 bootaa64.efi
-          cp /usr/lib/grub/arm64-efi/monolithic/grubaa64.efi ${{ env.efi_path }}/bootaa64.efi
-          
-          echo "EFI files created:"
-          ls -la ${{ env.efi_path }}/
-          
+          echo "Checking for existing EFI files in repository root:"
+          ls -la ${{ env.src_path }}/bootaa64.efi 2>/dev/null || echo "bootaa64.efi not found"
+          ls -la ${{ env.src_path }}/linux.efi 2>/dev/null || echo "linux.efi not found"
+          ls -la ${{ env.src_path }}/pmos.conf 2>/dev/null || echo "pmos.conf not found"
+      
       - name: Compression modules
         run: |
           cd  ${{ env.modules_path }}
@@ -137,14 +119,6 @@ jobs:
           cd ${{ env.src_path }}
           tar -zcf  ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz   linux-headers-${{ env.kernel_main_version }}
           mv ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz  ${{ env.armbian_path }}/
-          
-      - name: Compression dtb
-        run: | 
-          mkdir -p ${{ env.dtb_path }}/dtb
-          cp -a   ${{ env.src_path }}/arch/arm64/boot/dts/qcom/*.dtb   ${{ env.dtb_path }}/dtb
-          cd  ${{ env.dtb_path }}/dtb
-          tar -zcf dtb-${{ env.kernel_main_version }}.tar.gz  *
-          mv   dtb-${{ env.kernel_main_version }}.tar.gz      ${{ env.armbian_path }}/
       
       - name: Prepare chroot directories
         run: |
@@ -206,10 +180,9 @@ jobs:
           ls -lh /boot/initrd.img-${{ env.kernel_main_version }} /boot/uInitrd-${{ env.kernel_main_version }}
           EOF
       
-      - name: Copy initrd.img and uInitrd
+      - name: Copy initrd.img
         run: |
           sudo cp /mnt/chroot/boot/initrd.img-${{ env.kernel_main_version }}   ${{ env.armbian_file_path }}/
-          sudo cp /mnt/chroot/boot/uInitrd-${{ env.kernel_main_version }}       ${{ env.armbian_file_path }}/
           ls -lh ${{ env.armbian_file_path }} 
       
       - name: Clean chroot
@@ -222,7 +195,7 @@ jobs:
       - name: Copy boot files
         run: |
           ls ${{ env.src_path }}/arch/arm64/boot/
-          cp -a ${{ env.src_path }}/arch/arm64/boot/Image  ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
+          cp -a ${{ env.src_path }}/arch/arm64/boot/Image.gz  ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/System.map   ${{ env.armbian_file_path }}/System.map-${{ env.kernel_main_version }}
           cp -a ${{ env.src_path }}/.config     ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }}
           cd ${{ env.armbian_file_path }}
@@ -232,54 +205,71 @@ jobs:
         run: |
           cd ${{ env.boot_img_file }}
           
-          # 创建完整的 boot 目录结构
           mkdir -p boot/efi/boot
           mkdir -p boot/dtbs/qcom
           mkdir -p boot/loader/entries
           
-          # 复制 EFI 文件
-          cp ${{ env.efi_path }}/linux.efi boot/efi/boot/
-          cp ${{ env.efi_path }}/bootaa64.efi boot/efi/boot/
+          if [ -f "${{ env.src_path }}/bootaa64.efi" ]; then
+            cp ${{ env.src_path }}/bootaa64.efi boot/efi/boot/
+          fi
+          if [ -f "${{ env.src_path }}/linux.efi" ]; then
+            cp ${{ env.src_path }}/linux.efi boot/efi/boot/
+          fi
+          if [ -f "${{ env.src_path }}/pmos.conf" ]; then
+            cp ${{ env.src_path }}/pmos.conf boot/loader/entries/
+          fi
           
-          # 复制 DTB 文件
-          cp ${{ env.dtb_path }}/dtb/sm7150-google-sunfish.dtb boot/dtbs/qcom/
-          cp ${{ env.dtb_path }}/dtb/sm7150-xiaomi-davinci.dtb boot/dtbs/qcom/
-          cp ${{ env.dtb_path }}/dtb/sm7150-xiaomi-surya-huaxing.dtb boot/dtbs/qcom/
-          cp ${{ env.dtb_path }}/dtb/sm7150-xiaomi-surya-tianma.dtb boot/dtbs/qcom/
+          mkdir -p boot/dtbs/qcom
+          cp -a ${{ env.src_path }}/arch/arm64/boot/dts/qcom/*.dtb boot/dtbs/qcom/
           
-          # 复制内核和 initrd
+
           cp ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }} boot/
           cp ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }} boot/initramfs
           
-          # 创建 systemd-boot 配置文件
-          cat > boot/loader/entries/pmos.conf << 'EOF'
-          title PostmarketOS
-          linux /vmlinuz
-          initrd /initramfs
-          options console=tty0 console=ttyMS0,115200n8 root=UUID=3d5a63f7-e85b-4637-af14-a6963f0f48d8 rw loglevel=3 maxcpus=4
-          EOF
+          cp ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }} boot/
           
-          # 创建符号链接
           ln -sf efi/boot/linux.efi boot/linux.efi
           ln -sf vmlinuz-${{ env.kernel_main_version }} boot/vmlinuz
           
           echo "Boot image structure:"
           tree boot/
           
-          # 创建 ext4 文件系统镜像
-          dd if=/dev/zero of=../boot.img bs=1M count=64
-          mkfs.ext4 ../boot.img
-          mkdir -p ../boot_mount
-          sudo mount ../boot.img ../boot_mount
-          sudo cp -ra boot/* ../boot_mount/
-          sudo umount ../boot_mount
-          rm -rf ../boot_mount
+          # 创建 FAT32 文件系统镜像
+          dd if=/dev/zero of=boot.img bs=1M count=64
+          mkfs.fat -F32 -n "pmOS_boot" boot.img
           
-          # 重命名生成的 boot.img
-          mv ../boot.img ./redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+          # 挂载 FAT32 文件系统并复制文件
+          mkdir -p boot_mount
+          sudo mount -o loop boot.img boot_mount
+          sudo cp -ra boot/* boot_mount/
+          sync
+          sudo umount boot_mount
+          rm -rf boot_mount
           
-          echo "Generated boot files:"
+          mv boot.img redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+          
+          echo "Generated boot image:"
           ls -lh ./
+          file redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+
+      - name: Create boot directory structure tar package
+        run: |
+          cd ${{ env.boot_img_file }}
+        
+          tar -czf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz boot/
+          
+          echo "Boot structure tar package created:"
+          ls -lh *.tar.gz
+          tar -tzf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz
+
+      - name: Clean up intermediate files
+        run: |
+          rm -rf ${{ env.armbian_file_path }}
+          rm -rf ${{ env.src_path }}/modules
+          rm -rf ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}
+          echo "Final files to be uploaded:"
+          ls -la ${{ env.armbian_path }}/
+          ls -la ${{ env.boot_img_file }}/
 
       - name: Compression firmware
         run: |
@@ -288,55 +278,26 @@ jobs:
           mv redmik20-firmware  firmware
           fi
           tar -zcf redmik20_sm7150_firmware.tar.gz  firmware
-      
+
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.event.inputs.target_tag }}
           name: "redmik20_sm7150 Kernel ${{ env.kernel_main_version }}"
-          
           artifacts: |
             ${{ env.boot_img_file }}/redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
+            ${{ env.boot_img_file }}/redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz
             ${{ env.armbian_path }}/${{ env.kernel_main_version }}-modules.tar.gz
             ${{ env.armbian_path }}/linux-headers-${{ env.kernel_main_version }}.tar.gz
-            ${{ env.armbian_path }}/dtb-${{ env.kernel_main_version }}.tar.gz
             ${{ env.src_path }}/redmik20_sm7150_firmware.tar.gz
           body: |
             Kernel version: ${{ env.kernel_main_version }}            
             redmik20_sm7150 主线内核-${{ env.kernel_main_version }}   (红米k20不带pro，高通骁龙730)
-            
-            **包含的文件:**
-            - `redmik20_sm7150_${{ env.kernel_main_version }}_boot.img`: 完整的 boot 分区镜像 (ext4 格式)
-            - `${{ env.kernel_main_version }}-modules.tar.gz`: 内核模块
-            - `linux-headers-${{ env.kernel_main_version }}.tar.gz`: 内核头文件
-            - `dtb-${{ env.kernel_main_version }}.tar.gz`: 设备树文件
-            - `redmik20_sm7150_firmware.tar.gz`: 固件文件
-            
-            **Boot 镜像结构:**
-            ```
-            /boot/
-            ├── efi/boot/
-            │   ├── bootaa64.efi
-            │   └── linux.efi
-            ├── dtbs/qcom/
-            │   ├── sm7150-google-sunfish.dtb
-            │   ├── sm7150-xiaomi-davinci.dtb
-            │   ├── sm7150-xiaomi-surya-huaxing.dtb
-            │   └── sm7150-xiaomi-surya-tianma.dtb
-            ├── loader/entries/
-            │   └── pmos.conf
-            ├── initramfs
-            ├── linux.efi -> efi/boot/linux.efi
-            ├── vmlinuz -> vmlinuz-${{ env.kernel_main_version }}
-            └── vmlinuz-${{ env.kernel_main_version }}
-            ```
-            
-            **启动方式:**
-            - UEFI 启动: 通过 bootaa64.efi
-            - 直接启动: 通过 linux.efi (EFI stub)
-            - 传统启动: 通过 vmlinuz + initramfs
-            
-            rootfs UUID: 3d5a63f7-e85b-4637-af14-a6963f0f48d8
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到cache分区
+            redmik20_sm7150_firmware.tar.gz      驱动所需的firmware
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz  制作boot.img所用到的文件
+            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img  指定rootfs的UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
+            可以将boot.img挂载后修改pmos.conf。指定新的rootfs的UUID，也可以制作一个UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8的rootfs 
           draft: false
           prerelease: false
           allowUpdates: true
