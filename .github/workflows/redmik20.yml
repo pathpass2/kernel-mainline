@@ -221,7 +221,7 @@ jobs:
             echo "✗ bootaa64.efi 未找到"
           fi
           if [ -f "${{ env.src_path }}/linux.efi" ]; then
-            cp ${{ env.src_path }}/linux.efi boot/efi/boot/
+            cp ${{ env.src_path }}/linux.efi boot/
             echo "✓ linux.efi 已复制"
           else
             echo "✗ linux.efi 未找到"
