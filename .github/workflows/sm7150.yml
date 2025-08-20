@@ -84,21 +84,19 @@ jobs:
           mkdir -p  ${{ env.armbian_file_path }}
           mkdir -p  ${{ env.boot_img_file }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
+          ./scripts/config --set-val CONFIG_EFI y
+          ./scripts/config --set-val CONFIG_EFI_STUB y
+          ./scripts/config --set-val CONFIG_EFI_GENERIC_STUB_INITRD_CMDLINE_LOADER y
+          ./scripts/config --set-val CONFIG_ARM64_EFI y
+          ./scripts/config --set-val CONFIG_EFI_VARS y
+          ./scripts/config --set-val CONFIG_EFI_RUNTIME_WRAPPERS y
+          make ARCH=arm64 CROSS_COMPILE=aarch64-none-linux-gnu-  olddefconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image Image.gz vmlinuz.efi modules -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image Image.gz  modules vmlinuz.efi -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
       
-      - name: Build vmlinuz.efi
-        run: |          
-          # 检查是否生成成功
-          if [ -f "vmlinuz.efi" ]; then
-            echo "✓ vmlinuz.efi 编译成功"
-            ls -lh vmlinuz.efi
-          else
-            echo "✗ vmlinuz.efi 编译失败"
-            exit 1
-          fi
+
       
       - name: Compression modules
         run: |
