@@ -86,7 +86,6 @@ jobs:
           mkdir -p  ${{ env.boot_img_file }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          # 修改：编译Image.gz而不是Image
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image.gz modules -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
@@ -209,29 +208,43 @@ jobs:
           mkdir -p boot/dtbs/qcom
           mkdir -p boot/loader/entries
           
+          # 复制文件并设置执行权限
           if [ -f "${{ env.src_path }}/bootaa64.efi" ]; then
             cp ${{ env.src_path }}/bootaa64.efi boot/efi/boot/
+            chmod +x boot/efi/boot/bootaa64.efi
           fi
           if [ -f "${{ env.src_path }}/linux.efi" ]; then
             cp ${{ env.src_path }}/linux.efi boot/efi/boot/
+            chmod +x boot/efi/boot/linux.efi
           fi
           if [ -f "${{ env.src_path }}/pmos.conf" ]; then
             cp ${{ env.src_path }}/pmos.conf boot/loader/entries/
+            chmod +x boot/loader/entries/pmos.conf
           fi
           
           mkdir -p boot/dtbs/qcom
           cp -a ${{ env.src_path }}/arch/arm64/boot/dts/qcom/*.dtb boot/dtbs/qcom/
           
-
+          # 复制内核文件并设置权限
           cp ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }} boot/
+          chmod +x boot/vmlinuz-${{ env.kernel_main_version }}
+          
           cp ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }} boot/initramfs
+          chmod +x boot/initramfs
           
           cp ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }} boot/
+          chmod +x boot/config-${{ env.kernel_main_version }}
           
+          # 创建符号链接
           ln -sf efi/boot/linux.efi boot/linux.efi
           ln -sf vmlinuz-${{ env.kernel_main_version }} boot/vmlinuz
           
-          echo "Boot image structure:"
+          # 给所有文件和目录设置执行权限
+          find boot/ -type f -exec chmod +x {} \;
+          find boot/ -type d -exec chmod +x {} \;
+          
+          echo "Boot image structure with permissions:"
+          ls -la boot/
           tree boot/
           
           # 创建 FAT32 文件系统镜像
@@ -242,6 +255,8 @@ jobs:
           mkdir -p boot_mount
           sudo mount -o loop boot.img boot_mount
           sudo cp -ra boot/* boot_mount/
+          # 确保挂载后的文件也有执行权限
+          sudo find boot_mount/ -type f -exec chmod +x {} \;
           sync
           sudo umount boot_mount
           rm -rf boot_mount
@@ -262,14 +277,7 @@ jobs:
           ls -lh *.tar.gz
           tar -tzf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz
 
-      - name: Clean up intermediate files
-        run: |
-          rm -rf ${{ env.armbian_file_path }}
-          rm -rf ${{ env.src_path }}/modules
-          rm -rf ${{ env.src_path }}/linux-headers-${{ env.kernel_main_version }}
-          echo "Final files to be uploaded:"
-          ls -la ${{ env.armbian_path }}/
-          ls -la ${{ env.boot_img_file }}/
+
 
       - name: Compression firmware
         run: |
