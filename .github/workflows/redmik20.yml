@@ -57,7 +57,8 @@ jobs:
             img2simg  \
             build-essential  \
             binfmt-support \
-            dosfstools
+            dosfstools \
+            mtools
           sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
       
       - name: Setup ARM Toolchain
@@ -202,66 +203,64 @@ jobs:
         run: |
           cd ${{ env.boot_img_file }}
           
+          # 清理之前的文件
+          rm -rf boot/ boot_mount/ *.img
+          
           mkdir -p boot/efi/boot
           mkdir -p boot/dtbs/qcom
           mkdir -p boot/loader/entries
           
-          # 复制文件并设置执行权限
+          # 复制 EFI 文件
+          echo "复制 EFI 和配置文件..."
           if [ -f "${{ env.src_path }}/bootaa64.efi" ]; then
             cp ${{ env.src_path }}/bootaa64.efi boot/efi/boot/
-            chmod +x boot/efi/boot/bootaa64.efi
+            echo "✓ bootaa64.efi 已复制"
+          else
+            echo "✗ bootaa64.efi 未找到"
           fi
           if [ -f "${{ env.src_path }}/linux.efi" ]; then
             cp ${{ env.src_path }}/linux.efi boot/efi/boot/
-            chmod +x boot/efi/boot/linux.efi
+            echo "✓ linux.efi 已复制"
+          else
+            echo "✗ linux.efi 未找到"
           fi
           if [ -f "${{ env.src_path }}/pmos.conf" ]; then
             cp ${{ env.src_path }}/pmos.conf boot/loader/entries/
-            chmod +x boot/loader/entries/pmos.conf
+            echo "✓ pmos.conf 已复制"
+          else
+            echo "✗ pmos.conf 未找到"
           fi
           
-          mkdir -p boot/dtbs/qcom
+          # 复制设备树文件
+          echo "复制设备树文件..."
           cp -a ${{ env.src_path }}/arch/arm64/boot/dts/qcom/sm7150-xiaomi*.dtb boot/dtbs/qcom/
           
-          # 复制内核文件并设置权限
-          cp ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }} boot/
-          chmod +x boot/vmlinuz-${{ env.kernel_main_version }}
-          
+          # 复制内核文件
+          echo "复制内核文件..."
+          cp ${{ env.armbian_file_path }}/vmlinuz-${{ env.kernel_main_version }} boot/vmlinuz
           cp ${{ env.armbian_file_path }}/initrd.img-${{ env.kernel_main_version }} boot/initramfs
-          chmod +x boot/initramfs
-          
           cp ${{ env.armbian_file_path }}/config-${{ env.kernel_main_version }} boot/
-          chmod +x boot/config-${{ env.kernel_main_version }}
           
-          # 创建符号链接
-          ln -sf efi/boot/linux.efi boot/linux.efi
-          ln -sf vmlinuz-${{ env.kernel_main_version }} boot/vmlinuz
-          
-          # 给所有文件和目录设置执行权限
-          find boot/ -type f -exec chmod +x {} \;
-          find boot/ -type d -exec chmod +x {} \;
-          
-          echo "Boot image structure with permissions:"
-          ls -la boot/
+          echo "Boot 目录结构:"
           tree boot/
           
           # 创建 FAT32 文件系统镜像
+          echo "创建 FAT32 文件系统镜像..."
           dd if=/dev/zero of=boot.img bs=1M count=64
-          mkfs.fat -F32 -n "pmOS_boot" boot.img
+          mkfs.fat -F32 -n "PMOS_BOOT" boot.img
           
-          # 挂载 FAT32 文件系统并复制文件
+          # 挂载并复制文件
+          echo "挂载并复制文件..."
           mkdir -p boot_mount
-          sudo mount -o loop boot.img boot_mount
-          sudo cp -ra boot/* boot_mount/
-          # 确保挂载后的文件也有执行权限
-          sudo find boot_mount/ -type f -exec chmod +x {} \;
+          sudo mount -o loop,uid=$(id -u),gid=$(id -g) boot.img boot_mount
+          cp -r boot/* boot_mount/
           sync
           sudo umount boot_mount
           rm -rf boot_mount
           
           mv boot.img redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
           
-          echo "Generated boot image:"
+          echo "生成的 boot 镜像:"
           ls -lh ./
           file redmik20_sm7150_${{ env.kernel_main_version }}_boot.img
 
@@ -271,19 +270,23 @@ jobs:
         
           tar -czf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz boot/
           
-          echo "Boot structure tar package created:"
+          echo "Boot 结构压缩包已创建:"
           ls -lh *.tar.gz
-          tar -tzf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz
-
-
+          tar -tzf redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz | head -10
 
       - name: Compression firmware
         run: |
           cd   ${{ env.src_path }}
-          if [[ -d redmik20-firmware ]];then
-          mv redmik20-firmware  firmware
+          if [[ -d redmik20-firmware ]]; then
+            mv redmik20-firmware firmware
           fi
-          tar -zcf redmik20_sm7150_firmware.tar.gz  firmware
+          if [[ -d firmware ]]; then
+            tar -zcf redmik20_sm7150_firmware.tar.gz firmware
+            echo "固件压缩包已创建"
+            ls -lh redmik20_sm7150_firmware.tar.gz
+          else
+            echo "警告: firmware 目录不存在，跳过固件压缩"
+          fi
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@v1
@@ -299,11 +302,16 @@ jobs:
           body: |
             Kernel version: ${{ env.kernel_main_version }}            
             redmik20_sm7150 主线内核-${{ env.kernel_main_version }}   (红米k20不带pro，高通骁龙730)
-            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img通过fastboot刷入到cache分区
-            redmik20_sm7150_firmware.tar.gz      驱动所需的firmware
-            redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz  制作boot.img所用到的文件
-            redmik20_sm7150_${{ env.kernel_main_version }}_boot.img  指定rootfs的UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8
-            可以将boot.img挂载后修改pmos.conf。指定新的rootfs的UUID，也可以制作一个UUID为3d5a63f7-e85b-4637-af14-a6963f0f48d8的rootfs 
+            
+            包含的文件:
+            - redmik20_sm7150_${{ env.kernel_main_version }}_boot.img: 通过 fastboot 刷入到 cache 分区
+            - redmik20_sm7150_firmware.tar.gz: 驱动所需的 firmware
+            - redmik20_sm7150_${{ env.kernel_main_version }}_boot_structure.tar.gz: 制作 boot.img 所用到的文件结构
+            - ${{ env.kernel_main_version }}-modules.tar.gz: 内核模块
+            - linux-headers-${{ env.kernel_main_version }}.tar.gz: 内核头文件
+            
+            注意: boot.img 默认指定 rootfs 的 UUID 为 3d5a63f7-e85b-4637-af14-a6963f0f48d8
+            可以挂载 boot.img 后修改 pmos.conf 来指定新的 rootfs UUID，或者创建一个 UUID 为 3d5a63f7-e85b-4637-af14-a6963f0f48d8 的 rootfs
           draft: false
           prerelease: false
           allowUpdates: true
