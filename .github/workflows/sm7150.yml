@@ -85,15 +85,12 @@ jobs:
           mkdir -p  ${{ env.boot_img_file }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image.gz modules -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image.gz vmlinuz.efi modules -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
       
       - name: Build vmlinuz.efi
-        run: |
-          # 编译 EFI 可执行文件
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  vmlinuz.efi
-          
+        run: |          
           # 检查是否生成成功
           if [ -f "vmlinuz.efi" ]; then
             echo "✓ vmlinuz.efi 编译成功"
