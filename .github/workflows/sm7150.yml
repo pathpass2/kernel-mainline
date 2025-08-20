@@ -85,7 +85,7 @@ jobs:
           mkdir -p  ${{ env.boot_img_file }}
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  sm7150_defconfig
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  dtbs
-          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image.gz vmlinuz.efi modules -j$(nproc)
+          make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  Image Image.gz vmlinuz.efi modules -j$(nproc)
           make ARCH=$ARCH CROSS_COMPILE=aarch64-none-linux-gnu-  modules_install  INSTALL_MOD_PATH=${{ env.src_path }}/modules
           echo "${{ env.kernel_main_version }}"
       
